@@ -1,6 +1,5 @@
+>python splicenet.py
 Using TensorFlow backend.
-2019-12-03 12:18:59.066346: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
-2019-12-03 12:18:59.072163: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
 2019-12-03 12:19:00 {'job_name': 'job.splicenet', 'simulator_job': '', 'test_job': '', 'model_job': '', 'n_motif': 4, 'n_motif_train': -1, 'n_region': 2, 'l_seq': 200, 'l_motif': 6, 'n_mismatch': 2, 'n_exon_train': 1000, 'n_exon_test': 100, 'n_experiment_train': 1000, 'n_experiment_test': 100, 'motif_combination': False, 'use_constraints': False, 'output_activation': 'sigmoid', 'l2_regularizer': 0, 'effect_scale': 700, 'fraction_functional': 1.0, 'optimizer': 'adam', 'n_epoch': 1000, 'batch_size': 100, 'verbose': 1, 'patience': 3, 'infinite_training': False, 'RBP_expr': '', 'shuffle_RBP_expr': False, 'gamma_shape': 4, 'gamma_scale': 0.25, 'n_initialization': 5, 'merge_method': 'maxinfo', 'merge_power': 1.0, 'initialization_mode': 'keras_default', 'group_by': 'experiment', 'remove_non_regulated': False, 'no_plot': False, 'no_motif_logo': False}
 2019-12-03 12:19:00 create a new model
 2019-12-03 12:19:00 save simulator model
