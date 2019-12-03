@@ -4,7 +4,7 @@ Example usage (python3):
 
 python splicenet.py
 
-2. large-scale simulation (100 motifs 4 regions): use a previously generated model (motif+positinal effect) and real splicing/RBP abundance (GTEx) to simulate splicing. Train each model with only 2 epochs.
+2. large-scale simulation (100 motifs 4 regions): use a previously generated model (motif+positinal effect) and real splicing/RBP abundance (GTEx, unzip first) to simulate splicing. Train each model with only 2 epochs.
 
 python splicenet.py --n_motif=100 --n_region=4 --n_exon_train=5000 --n_exon_test=100 --n_experiment_train=1000 --n_experiment_test=20 --job_name=motif100region4new --n_initialization=5 --patience=1 --batch_size=2  --n_epoch=2 --load_simulator=motif100region4 --RBP_expr=RBP_GTEx_top1000_mean_normalized.txt 
 
