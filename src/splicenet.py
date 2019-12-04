@@ -3,8 +3,8 @@ from __future__ import print_function
 import os,sys,copy,fnmatch
 
 # The GPU id to use, usually either "0" or "1";
-#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
-#os.environ["CUDA_VISIBLE_DEVICES"]="";
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
+os.environ["CUDA_VISIBLE_DEVICES"]="";
 
 from optparse import OptionParser
 
@@ -288,7 +288,7 @@ def splice_net_training(
             motif_i         # if > 0, only train with a single motif i.
             ):
 
-    # get model parameters. so far doesn't work with mult-gpu
+    # get model parameters. so far doesn't work with multi-gpu
     n_region,n_motif,l_motif,l_seq = get_model_parameters(model)
     
     # single motif training, need to test thoroughly
@@ -352,7 +352,6 @@ def splice_net_training(
         output_model.set_weights( merge_models(model_weights,merge_method)[0] )
         #output_model  = multi_gpu_model(output_model,gpus=4)
         output_model.compile(loss = 'mean_squared_error', optimizer = 'adam')
-    
     
     # continue to train the merged model
     
@@ -615,10 +614,10 @@ if __name__ == '__main__':
     parser.add_option("--l_seq", dest = "l_seq",help = "length of input sequence, currently same for all regions", type = int,default = 200)
     parser.add_option("--l_motif", dest = "l_motif",help = "length of motif", type = int, default = 6)
     parser.add_option("--n_mismatch", dest = "n_mismatch",help = "motif mismatch allowed in simulation", type = int, default = 2)
-    parser.add_option("--n_exon_train", dest = "n_exon_train",help = "total number of exons for training", type = int,default = 100)
+    parser.add_option("--n_exon_train", dest = "n_exon_train",help = "total number of exons for training", type = int,default = 1000)
     parser.add_option("--n_exon_test", dest = "n_exon_test",help = "total number of exons for test", type = int,default = 100)
-    parser.add_option("--n_experiment_train", dest = "n_experiment_train", help = "number of experiments (i.e. RNA-seq)", type = int,default = 100)
-    parser.add_option("--n_experiment_test", dest = "n_experiment_test", help = "number of experiment for the test set in infinite training (i.e. RNA-seq)", type = int,default = 10)
+    parser.add_option("--n_experiment_train", dest = "n_experiment_train", help = "number of experiments (i.e. RNA-seq)", type = int,default = 1000)
+    parser.add_option("--n_experiment_test", dest = "n_experiment_test", help = "number of experiment for the test set in infinite training (i.e. RNA-seq)", type = int,default = 100)
     parser.add_option("--motif_combination", dest = "motif_combination", help = "shuffle motif RBP pairing during learning", default = False,action = 'store_true')
     parser.add_option("--use_constraints", dest = "use_constraints", help = "use PWM constraints on convolutional layer filter", default = False,action = 'store_true')
     parser.add_option("--output_activation",dest = "output_activation",help = "output activation function, sigmoid or relu or tanh or none, default is sigmoid",default = "sigmoid")
@@ -629,7 +628,6 @@ if __name__ == '__main__':
     parser.add_option("--optimizer",dest = "optimizer",help = "optimizer,default adam",default = "adam")
     parser.add_option("--n_epoch", dest = "n_epoch", help = "number of epochs in training", type = int,default = -1)
     parser.add_option("--batch_size", dest = "batch_size",help = "batch size in training. Default is 0.01% of samples (n_exon_train x n_experiment_train)", type = int, default = -1)
-    parser.add_option("--n_fit", dest = "n_fit", help = "fit the model n_fit times with random initialization", type = int,default = 1)
     parser.add_option("--verbose", dest = "verbose", help = "verbose level during model fitting", type = int,default = 1)
     parser.add_option("--patience", dest = "patience", help = "patience during model fitting", type = int,default = 3)
     parser.add_option("--infinite_training", dest = "infinite_training", help = "if true, will generate new data to train a model until no improvement on test data. Default n_epoch=1,batch_size=1000 for this mode. If n_initialization is set to >1, multiple inifinitely trained models will be merged", default = False, action = 'store_true')
