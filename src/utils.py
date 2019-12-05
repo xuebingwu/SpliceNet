@@ -743,7 +743,7 @@ def calculate_exon_SF_correlation(x,y,n_experiment):
     expr = x[n_region][index*n_exon,:]
     cor = numpy.zeros((n_exon,n_motif),dtype=float)
     for i in range(n_exon):
-        print(i)
+        print("calculating for exon ",i+1,'                                     ',end='\r')
         for j in range(n_motif):
             cor[i,j] = numpy.corrcoef(y[index*n_exon+i].flatten(),expr[:,j].flatten())[0,1]
     return cor
@@ -867,7 +867,7 @@ x_train,y_train,x_test,y_test,seqs_train, seqs_test = splice_net_simulation(
         False # TODO: remove PSI = 0.5 due to lack of motif match
         )
         
-cor_train = calculate_exon_SF_correlation(x_train,y_train,1000)
+cor_train = calculate_exon_SF_correlation(x_train,y_train,n_expr)
 cor_test = calculate_exon_SF_correlation(x_test,y_test,100)
 
 use_bias_motif=True, 
@@ -899,101 +899,10 @@ model.fit(
 numpy.transpose(model.layers[4].get_weights()[0][:,:,:,0][:,:,0])
 
 numpy.savetxt('pwm.txt',numpy.transpose(model.layers[4].get_weights()[0][:,:,:,0][:,:,0]),fmt='%.3f')            
-            
-######################################## MatriREDUCE    
-from splicenet11 import *
-model0 = load_model('motif10region4.simulator_model.h5')
-x_train,y_train,x_test,y_test,seqs_train, seqs_test = splice_net_simulation(
-        model0,
-        [],       # RBP expression matrix, each column is an experiment, each row is a RBP. If [], will use simulation
-        1000,
-        100,
-        1000,
-        100,
-        4,
-        0.25,
-        'experiment',       # how training data is organized: EXPERIMENT, EXON (TODO), RANDOM #TODO: systematically compare options for motif and positionaleffect learning
-        False # TODO: remove PSI = 0.5 due to lack of motif match
-        )
-        
-cor_train = calculate_exon_SF_correlation(x_train,y_train,1000)
-cor_test = calculate_exon_SF_correlation(x_test,y_test,100)
 
-n_region = len(seqs_train)
-l_seq = seqs_train[0].shape[2]
-l_motif=6
-n_motif=10
-n_exon=1000
-
-
-# write exon-SF correlation and absolute correlation
-for i in range(n_motif): 
-    f1=open('cor_PSI_SF-'+str(i)+'.txt','w')
-    f2=open('cor_PSI_SF-'+str(i)+'.abs.txt','w')
-    for j in range(n_exon): 
-        f1.write(str(j)+'\t'+str(cor_train[j,i])+'\n') 
-        f2.write(str(j)+'\t'+str(abs(cor_train[j,i]))+'\n') 
-    f1.close() 
-    f2.close()
-    
-# write sequences in each region, or concatinate
-for i in range(n_region):
-    seqs = reverse_encode_seqs(seqs_train[i]) 
-    write_fasta(seqs,'sequence-region-'+str(i)+'.fasta')  
-
-os.system('cp sequence-region-0.fasta sequence-concat.fasta')
-for i in range(1,n_region):
-    concat_fasta(reverse_encode_seqs(seqs_train[i]),'sequence-concat.fasta')
-
-model = splice_net_model(n_motif, n_region, l_seq,l_motif, 'relu',False, False,'adam',0)
-weights = model.layers[n_region].get_weights()
-        
-# perform motif discovery in each region for each motif
-for i in range(n_motif):
-    outputdir = 'MatrixREDUCE-motif-'+str(i)
-    os.system('mkdir '+outputdir)
-    cmd = 'MatrixREDUCE -sequence=sequence-concat.fasta -meas=cor_PSI_SF-'+str(i)+'.abs.txt -strand=1 -topo=X'+str(l_motif)+' -output='+outputdir
-    os.system(cmd)
-    weights[0][:,:,:,i][:,:,0] = parse_pwm_from_MatrixREDUCE_output(outputdir+'/psam_001.xml')
-    for j in range(n_region):
-        outputdir = 'MatrixREDUCE-motif-'+str(i)+'-region-'+str(j)
-        os.system('mkdir '+outputdir)
-        cmd = 'MatrixREDUCE -sequence=sequence-region-'+str(j)+'.fasta -meas=cor_PSI_SF-'+str(i)+'.txt -strand=1 -topo=X'+str(l_motif)+' -output='+outputdir
-        os.system(cmd)
-
-# doesn't work well, need to convert PSAM to weight matrix, also set bias, positional_effect etc
-model.layers[n_region].set_weights(weights)       
-
-
-best_model, prediction = splice_net_training(
-            model,
-            x_train,
-            y_train,
-            x_test,
-            y_test,
-            [],
-            [],
-            1,
-            'maxinfo',# how to merge multiple models
-            'relu',
-            False,
-            1000,
-            30,
-            1,
-            3,
-            'keras_default',
-            [],
-            'test',
-            0,
-            1,
-            False,
-            'adam',
-            0,
-            2,
-            -1         # if > 0, only train with a single motif i.
-            )
-            
 '''
+      
+            
 
 def parse_pwm_from_MatrixREDUCE_output(filename):
     #filename: path to a psam file in MatrixREDUCE output folder, typically psam_001.xml
@@ -1005,4 +914,6 @@ def parse_pwm_from_MatrixREDUCE_output(filename):
     
     return numpy.transpose(pwm)
     
+
+
     
