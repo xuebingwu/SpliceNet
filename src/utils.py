@@ -11,7 +11,6 @@ import random
 import pickle
 
 import os, sys, copy, fnmatch
-
 from os import path
 
 import time
@@ -940,7 +939,9 @@ numpy.savetxt('pwm.txt',numpy.transpose(model.layers[4].get_weights()[0][:,:,:,0
 
 def parse_pwm_from_matrix_reduce_output(filename):
     # filename: path to a psam file in MatrixREDUCE output folder, typically psam_001.xml
-
+    # what if there is no such file?
+    if not path.exists(filename):
+        return numpy.zeros(1)
     cmd = "more " + filename + "  | grep '#' | grep -v '=' | grep -v opt | cut -d '#' -f 1 >" + filename + "tmp"
     os.system(cmd)
     pwm = numpy.loadtxt(filename + 'tmp')

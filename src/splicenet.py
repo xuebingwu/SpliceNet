@@ -4,7 +4,7 @@ import os, sys, copy, fnmatch
 
 # The GPU id to use, usually either "0" or "1";
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID";
-os.environ["CUDA_VISIBLE_DEVICES"] = "3";
+os.environ["CUDA_VISIBLE_DEVICES"] = "";
 
 from optparse import OptionParser
 
@@ -674,11 +674,11 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
                 )
             ]
         )
-        r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test,
+    r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test,
                                                              ps, motifs)
-        print(time_string(), "initialization", i + 1, loss, r1, r2, signloss)
-        print(time_string(), "motif rank", rnk)
-        print(time_string(), "motif info", str(info))
+    print(time_string(), r1, r2, signloss)
+    print(time_string(), "motif rank", rnk)
+    print(time_string(), "motif info", str(info))
     '''
 
     cor_train = calculate_exon_SF_correlation(x_train, y_train, n_expr)
@@ -714,7 +714,7 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
         cmd = 'MatrixREDUCE -sequence=sequence-concat.fasta -meas=cor_PSI_SF-' + str(
             i) + '.abs.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir
         os.system(cmd)
-        weights[0][:, :, :, i][:, :, 0] = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
+        pwm = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
         for j in range(n_region):
             outputdir = 'MatrixREDUCE-motif-' + str(i) + '-region-' + str(j)
             os.system('mkdir ' + outputdir)
@@ -722,8 +722,14 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
             cmd = 'MatrixREDUCE -sequence=sequence-region-' + str(j) + '.fasta -meas=cor_PSI_SF-' + str(
                 i) + '.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir
             os.system(cmd)
+            pwm2 = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
+            if pwm.all() == 0:
+                pwm = pwm2
             positional_effect[0][i + j*n_motif][0] = parse_positional_effect_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
-
+        if pwm.all() != 0:
+            weights[0][:, :, :, i][:, :, 0] = pwm
+        else:
+            weights[0][:, :, :, i][:, :, 0] = 0
     os.system("mkdir MatrixREDUCE")
     os.system("mv sequence*.fasta cor_* MatrixREDUCE* MatrixREDUCE")
     return weights,positional_effect
@@ -781,7 +787,9 @@ if __name__ == '__main__':
     parser.add_option("--infinite_training", dest="infinite_training",
                       help="if true, will generate new data to train a model until no improvement on test data. Default n_epoch=1,batch_size=1000 for this mode. If n_initialization is set to >1, multiple inifinitely trained models will be merged",
                       default=False, action='store_true')
-
+    parser.add_option("--matrix_reduce", dest="matrix_reduce",
+                      help="if true, will use MatrixREDUCE to discover motif and positional effect, which will be used to initialize the splice net model",
+                      default=False, action='store_true')
     # simulation
     parser.add_option("--RBP_expr", dest="RBP_expr",
                       help="RBP expression data, each row is an RBP and each column is an experiment (RNA-seq), if not specified, will use gamma distribution to simulate",
@@ -1005,37 +1013,85 @@ if __name__ == '__main__':
             options.l2_regularizer
         )
 
-    motif_i = -1
-    model, prediction = splice_net_training(
-        model,
-        x_train,
-        y_train,
-        x_test,
-        y_test,
-        motifs,
-        positional_effect,
-        options.n_initialization,
-        options.merge_method,
-        options.output_activation,
-        options.use_constraints,
-        options.batch_size,
-        options.n_epoch,
-        options.verbose,
-        options.patience,
-        options.initialization_mode,
-        model0,
-        options.job_name,
-        options.effect_scale,
-        options.fraction_functional,
-        options.motif_combination,
-        options.optimizer,
-        options.l2_regularizer,
-        options.n_mismatch,
-        motif_i  # single motif
-    )
 
-    if motif_i >= 0:
-        info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs[motif_i])
+    if options.matrix_reduce:
+        options.n_initialization = 1
+
+        weights, pos_eff = splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, options.n_exon_train, options.n_experiment_train,
+                                                                      options.n_motif, options.n_region, options.l_seq, options.l_motif)
+        # check if MatrixREDUCE learns the right motif
+        info, rnk, topkmer, kmers = information_content(weights[:2], motifs)
+        # check if MatrixREDUCE learns positional effect
+
+        r = numpy.corrcoef(pos_eff[0].flatten(), positional_effect.flatten())[0, 1]
+
+        print(time_string(), "pos_eff r = ", r)
+        print(time_string(), "motif rank", str(rnk))
+        print(time_string(), "motif info", str(info))
+
+        # CNN bias
+        weights[1] = weights[1] - 4
+        pos_eff[0] = positional_effect_normalization(pos_eff[0], 100)
+
+        # set the model weights to those learned by MatrixREDUCE
+        model.layers[options.n_region].set_weights(weights)
+        # model.layers[n_region].set_weights(model0.layers[n_region].get_weights())
+
+        model.layers[-1].set_weights(pos_eff)
+        # model.layers[-1].set_weights(model0.layers[-1].get_weights())
+
+        model.fit(
+            x_train,
+            y_train,
+            batch_size=options.batch_size,
+            epochs=options.n_epoch,
+            verbose=options.verbose,
+            validation_data=(x_test, y_test),
+            callbacks=[
+                keras.callbacks.EarlyStopping(
+                    monitor='val_loss',
+                    min_delta=0,
+                    patience=options.patience,
+                    verbose=0,
+                    mode='auto',
+                    restore_best_weights=True
+                )
+            ]
+        )
+
+    else:
+        motif_i = -1
+
+        model, prediction = splice_net_training(
+            model,
+            x_train,
+            y_train,
+            x_test,
+            y_test,
+            motifs,
+            positional_effect,
+            options.n_initialization,
+            options.merge_method,
+            options.output_activation,
+            options.use_constraints,
+            options.batch_size,
+            options.n_epoch,
+            options.verbose,
+            options.patience,
+            options.initialization_mode,
+            model0,
+            options.job_name,
+            options.effect_scale,
+            options.fraction_functional,
+            options.motif_combination,
+            options.optimizer,
+            options.l2_regularizer,
+            options.n_mismatch,
+            motif_i  # single motif
+        )
+
+        if motif_i >= 0:
+            info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs[motif_i])
 
     # evaluate the model
     r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, prediction, y_test, positional_effect, motifs)
