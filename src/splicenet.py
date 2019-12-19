@@ -187,12 +187,12 @@ def initialize_splice_net(
     elif mode == 'copy_motif' or mode == 'copy_both':
         # copy motif weights from another model
         if predefined_model == []:
-            print(TimeString(), "Error: predefiend_model is empty!")
+            print(time_string(), "Error: predefiend_model is empty!")
             raise
         model.layers[n_region].set_weights(predefined_model.layers[n_region].get_weights())
     elif mode == 'copy_posiitonal_effect' or mode == 'coopy_both':
         if predefined_model == []:
-            print(TimeString(), "Error: predefiend_model is empty!")
+            print(time_string(), "Error: predefiend_model is empty!")
             raise
         model.layers[-1].set_weights(predefined_model.layers[-1].get_weights())
 
@@ -219,25 +219,25 @@ def splice_net_simulation(
     # RBP expression data
     if len(RBP_expr) == 0:
         if gamma_shape > 0 and gamma_scale > 0:
-            print(TimeString(), "RBP expression: randomly generated from a gamma distribution")
+            print(time_string(), "RBP expression: randomly generated from a gamma distribution")
             expression_train = numpy.random.gamma(gamma_shape, gamma_scale, size=(n_motif, n_experiment_train))
             expression_test = numpy.random.gamma(gamma_shape, gamma_scale, size=(n_motif, n_experiment_test))
         else:
             raise SystemExit('Error: need to provide a RBP matrix or gamma distribution parameters.')
     else:
-        print(TimeString(), "RBP expression:from GTEx")
+        print(time_string(), "RBP expression:from GTEx")
         if n_experiment_train + n_experiment_train > RBP_expr.shape[1] or n_motif > RBP_expr.shape[0]:
             raise SystemExit('Error: not enough data from GTEx')
         expression_train = RBP_expr[:n_motif, :n_experiment_train]
         expression_test = RBP_expr[:n_motif, n_experiment_train:n_experiment_train + n_experiment_test]
 
     # sequence
-    print(TimeString(), "sequences: randomly generated")
+    print(time_string(), "sequences: randomly generated")
     seqs_train = generate_input_sequences(n_region, n_exon_train, l_seq)
     seqs_test = generate_input_sequences(n_region, n_exon_test, l_seq)
 
     # generate data
-    print(TimeString(), "generate training and test data")
+    print(time_string(), "generate training and test data")
     x_train, y_train, index, input_seqs_train = generate_training_data(seqs_train, [], expression_train, model,
                                                                        gamma_shape, gamma_scale, n_experiment_train,
                                                                        group_by, remove_non_regulated, 0)
@@ -248,7 +248,7 @@ def splice_net_simulation(
     # TODO: remove non-informative data
     # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
     if remove_non_regulated:
-        print(TimeString(), "remove non-regulated exons")
+        print(time_string(), "remove non-regulated exons")
         sel1 = numpy.where(abs(y_train - 0.5) < 0.01)
         sel2 = numpy.where(abs(y_test - 0.5) < 0.01)
 
@@ -348,9 +348,9 @@ def splice_net_training(
 
         r1, r2, signloss, info, rnk = evaluate_trained_model(new_model, model0, new_model.predict(x_test2), y_test,
                                                              positional_effect, motifs)
-        print(TimeString(), "initialization", i + 1, loss, r1, r2, signloss)
-        print(TimeString(), "motif rank", rnk)
-        print(TimeString(), "motif info", str(info))
+        print(time_string(), "initialization", i + 1, loss, r1, r2, signloss)
+        print(time_string(), "motif rank", rnk)
+        print(time_string(), "motif info", str(info))
 
         model_weights.append(new_model.get_weights())
 
@@ -452,10 +452,10 @@ def infinite_training(
 
     index0 = 0
     if x_test == []:
-        print(TimeString(), "generate test sequences")
+        print(time_string(), "generate test sequences")
         seqs_test = generate_input_sequences(n_region, n_exon_test, l_seq)
 
-        print(TimeString(), "generate test data based on the sequence: ", n_experiment_test)
+        print(time_string(), "generate test data based on the sequence: ", n_experiment_test)
 
         x_test, y_test, index0, input_seqs_test = generate_training_data(
             seqs_test,
@@ -471,18 +471,18 @@ def infinite_training(
         )
 
         '''
-        print(TimeString(),"plot PSI histogram")
+        print(time_string(),"plot PSI histogram")
         plt.hist(y_test,100)
         plt.savefig(options.job_name+'.psi-hist.png')
         plt.close()
     
-        print(TimeString(),"save simulation test data")
+        print(time_string(),"save simulation test data")
         with open(job_name+'-test-data.pickle', 'wb') as f:
             pickle.dump([x_test,y_test,seqs],f)
             #TODO: only save RBP expression and sequence, save a lot of space
         '''
     if model == []:
-        print(TimeString(), "build a model")
+        print(time_string(), "build a model")
         model1 = splice_net_model(n_motif, n_region, l_seq, l_motif, output_activation, use_constraints,
                                   motif_combination, optimizer, l2_regularizer)
 
@@ -497,12 +497,12 @@ def infinite_training(
 
     index = index0
 
-    print(TimeString(), "generate training sequences")
+    print(time_string(), "generate training sequences")
     seqs_train = generate_input_sequences(n_region, n_exon_train, l_seq)
     input_seqs_train = []
 
     '''
-    print(TimeString(),"generate new training data (same sequence, new expression). index =",index)
+    print(time_string(),"generate new training data (same sequence, new expression). index =",index)
     
     x_train,y_train,index,input_seqs_train = generate_training_data(
         seqs_train,
@@ -536,13 +536,13 @@ def infinite_training(
 
         loss = new_model.evaluate(x_test, y_test, verbose=0)
         
-        print(TimeString(),'initialization ',i+1,'loss',loss)
+        print(time_string(),'initialization ',i+1,'loss',loss)
         
         if loss < best_loss:
             best_loss = loss
             best_model = new_model
     
-    print(TimeString(),'best initialization loss',best_model.evaluate(x_test, y_test, verbose=0))
+    print(time_string(),'best initialization loss',best_model.evaluate(x_test, y_test, verbose=0))
         
     model = best_model
     '''
@@ -554,7 +554,7 @@ def infinite_training(
 
     # stop after no improvement in the last 20 try
     while (loss_new <= loss_best or no_improvement < patience):
-        print(TimeString(), "generate new training data. index =", index)
+        print(time_string(), "generate new training data. index =", index)
         x_train, y_train, index, input_seqs = generate_training_data(
             seqs_train,
             input_seqs_train,
@@ -568,7 +568,7 @@ def infinite_training(
             index
         )
 
-        print(TimeString(), "fit the model, stop when no improvement in validation")
+        print(time_string(), "fit the model, stop when no improvement in validation")
         model.fit(x_train,
                   y_train,
                   batch_size=batch_size,  # set it to 1000
@@ -588,12 +588,12 @@ def infinite_training(
             # save the best model 
             model.save(job_name + '.best_model.h5')
         num_expr = num_expr + n_experiment_train
-        print(TimeString(), "calculating correlation")
+        print(time_string(), "calculating correlation")
         r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test,
                                                              positional_effect, motifs)
-        print(TimeString(), "infinite training", num_expr, loss_new, r1, r2, signloss, no_improvement)
-        print(TimeString(), "motif rank", rnk)
-        print(TimeString(), "motif info", str(info))
+        print(time_string(), "infinite training", num_expr, loss_new, r1, r2, signloss, no_improvement)
+        print(time_string(), "motif rank", rnk)
+        print(time_string(), "motif info", str(info))
 
         if RBP_expr != []:
             if index + n_experiment_train > RBP_expr.shape[1]:
@@ -606,9 +606,9 @@ def infinite_training(
     best_model = load_model(job_name + '.best_model.h5')
     r1, r2, signloss, info, rnk = evaluate_trained_model(best_model, model0, best_model.predict(x_test), y_test,
                                                          positional_effect, motifs)
-    print(TimeString(), "infinite training best model", r1, r2, signloss)
-    print(TimeString(), "motif rank", str(rnk))
-    print(TimeString(), "motif info", str(info))
+    print(time_string(), "infinite training best model", r1, r2, signloss)
+    print(time_string(), "motif rank", str(rnk))
+    print(time_string(), "motif info", str(info))
 
     return best_model
 
@@ -628,45 +628,57 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
         motifs,ps = pickle.load(f)
 
     n_exon=1000
-    n_expr=100
+    n_expr=1000
 
     x_train,y_train,x_test,y_test,seqs_train, seqs_test = splice_net_simulation(model0,[],n_exon,100,n_expr,100,4,0.25,'experiment', False)
 
-    weights = splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train,y_train,n_exon,n_expr,n_motif, n_region, l_seq,l_motif)
+    # TODO: only extract motif and positional effect. how to get bias?
+    weights, pos_eff = splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train,y_train,n_exon,n_expr,n_motif, n_region, l_seq,l_motif)
 
-    # doesn't work well, need to convert PSAM to weight matrix, also set bias, positional_effect etc
-    model.layers[n_region].set_weights(weights)       
-
+    # check if MatrixREDUCE learns the right motif
     info,rnk,topkmer,kmers=information_content(weights[:2],motifs)
 
-    best_model, prediction = splice_net_training(
-                model,
-                x_train,
-                y_train,
-                x_test,
-                y_test,
-                [],
-                [],
-                1,
-                'maxinfo',# how to merge multiple models
-                'relu',
-                False,
-                1000,
-                30,
-                1,
-                3,
-                'keras_default',
-                [],
-                'test',
-                0,
-                1,
-                False,
-                'adam',
-                0,
-                2,
-                -1         # if > 0, only train with a single motif i.
-                )
+    weights[1] = weights[1]-4
+    pos_eff[0] = positional_effect_normalization(pos_eff[0],100)
 
+    # check if MatrixREDUCE learns positional effect
+    r = numpy.corrcoef(pos_eff[0].flatten(), ps.flatten())[0, 1]
+
+    # The following code is an example of how to use the weights learned by MatrixREDUCE
+    # TODO: rescale the motif matrix and positional effect. batch normalize?
+    model = splice_net_model(n_motif, n_region, l_seq, l_motif, 'relu', False, False, 'adam', 0)
+
+    # set the model weights to those learned by MatrixREDUCE
+    model.layers[n_region].set_weights(weights)
+    #model.layers[n_region].set_weights(model0.layers[n_region].get_weights())
+
+    model.layers[-1].set_weights(pos_eff)
+    #model.layers[-1].set_weights(model0.layers[-1].get_weights())
+
+    # train the model
+    model.fit(
+            x_train,
+            y_train,
+            batch_size=1000,
+            epochs=1000,
+            verbose=1,
+            validation_data=(x_test, y_test),
+            callbacks=[
+                keras.callbacks.EarlyStopping(
+                    monitor='val_loss',
+                    min_delta=0,
+                    patience=5,
+                    verbose=0,
+                    mode='auto',
+                    restore_best_weights=True
+                )
+            ]
+        )
+        r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test,
+                                                             ps, motifs)
+        print(time_string(), "initialization", i + 1, loss, r1, r2, signloss)
+        print(time_string(), "motif rank", rnk)
+        print(time_string(), "motif info", str(info))
     '''
 
     cor_train = calculate_exon_SF_correlation(x_train, y_train, n_expr)
@@ -692,7 +704,7 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
 
     model = splice_net_model(n_motif, n_region, l_seq, l_motif, 'relu', False, False, 'adam', 0)
     weights = model.layers[n_region].get_weights()
-    # positional_effect = model.layers[]
+    positional_effect = model.layers[-1].get_weights()
 
     # perform motif discovery in each region for each motif
     # TODO: may need take the majority vote from multiple regions? the positional effect is the slope
@@ -702,7 +714,7 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
         cmd = 'MatrixREDUCE -sequence=sequence-concat.fasta -meas=cor_PSI_SF-' + str(
             i) + '.abs.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir
         os.system(cmd)
-        weights[0][:, :, :, i][:, :, 0] = parse_pwm_from_MatrixREDUCE_output(outputdir + '/psam_001.xml')
+        weights[0][:, :, :, i][:, :, 0] = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
         for j in range(n_region):
             outputdir = 'MatrixREDUCE-motif-' + str(i) + '-region-' + str(j)
             os.system('mkdir ' + outputdir)
@@ -710,8 +722,11 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
             cmd = 'MatrixREDUCE -sequence=sequence-region-' + str(j) + '.fasta -meas=cor_PSI_SF-' + str(
                 i) + '.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir
             os.system(cmd)
+            positional_effect[0][i + j*n_motif][0] = parse_positional_effect_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
 
-    return weights
+    os.system("mkdir MatrixREDUCE")
+    os.system("mv sequence*.fasta cor_* MatrixREDUCE* MatrixREDUCE")
+    return weights,positional_effect
 
 
 if __name__ == '__main__':
@@ -824,7 +839,7 @@ if __name__ == '__main__':
     log = open(options.job_name + '.log', 'a+')
     log.write(str(options) + '\n')
 
-    print(TimeString(), str(options))
+    print(time_string(), str(options))
 
     # RBP expression data
     if options.RBP_expr == '':
@@ -841,7 +856,7 @@ if __name__ == '__main__':
 
     # load or create a simulator model
     if options.simulator_job == "":
-        print(TimeString(), "create a new model")
+        print(time_string(), "create a new model")
         model0 = splice_net_model(
             options.n_motif,
             options.n_region,
@@ -854,11 +869,11 @@ if __name__ == '__main__':
             options.l2_regularizer
         )
 
-        print(TimeString(), "initialize with random motifs and positional effects")
+        print(time_string(), "initialize with random motifs and positional effects")
         model0, motifs, positional_effect = initialize_splice_net(model0, "simulation", [], options.effect_scale, 1,
                                                                   options.n_mismatch)
 
-        print(TimeString(), "save simulator model")
+        print(time_string(), "save simulator model")
         model0.save(options.job_name + '.simulator_model.h5')
 
         with open(options.job_name + '-motif.pickle', 'wb') as f:
@@ -866,7 +881,7 @@ if __name__ == '__main__':
             f.close()
 
     else:
-        print(TimeString(), "load simulator model", options.simulator_job)
+        print(time_string(), "load simulator model", options.simulator_job)
         model0 = load_model(options.simulator_job + '.simulator_model.h5')
         with open(options.simulator_job + '-motif.pickle', 'rb') as f:
             motifs, positional_effect = pickle.load(f)
@@ -874,7 +889,7 @@ if __name__ == '__main__':
             # load test data if specificied
     seqs = []
     if options.test_job != '':
-        print(TimeString(), "load test data")
+        print(time_string(), "load test data")
         with open(options.test_job + '-test-data.pickle', 'rb') as f:
             seqs, expression = pickle.load(f)
     else:
@@ -883,7 +898,7 @@ if __name__ == '__main__':
 
     # load a trained model if specified
     if options.model_job != '':
-        print(TimeString(), "load trained model")
+        print(time_string(), "load trained model")
         model = load_model(options.model_job + '.best_model.h5')
     else:
         model = []
@@ -937,12 +952,12 @@ if __name__ == '__main__':
         model.set_weights(merged_weights)
         model.save(options.job_name + '-merged_model.h5')
         info, rnk, topkmer, kmers = information_content(merged_weights[:2], motifs)
-        print(TimeString(), "motif rank", rnk)
-        print(TimeString(), "motif info", str(info))
+        print(time_string(), "motif rank", rnk)
+        print(time_string(), "motif info", str(info))
         exit()
 
     if options.test_job == '':
-        print(TimeString(), "simulating training and test data using the model")
+        print(time_string(), "simulating training and test data using the model")
         x_train, y_train, x_test, y_test, seqs_train, seqs_test = splice_net_simulation(
             model0,
             RBP_expr,
@@ -956,7 +971,7 @@ if __name__ == '__main__':
             options.remove_non_regulated
         )
 
-        # print(TimeString(),"save simulation test data")
+        # print(time_string(),"save simulation test data")
         # with open(options.job_name+'-test-data.pickle', 'wb') as f:
         #    pickle.dump([seqs,expression],f)
 
@@ -976,7 +991,7 @@ if __name__ == '__main__':
         # change n_motif
 
     if model == []:
-        print(TimeString(),
+        print(time_string(),
               "train a model, or a model initialized with motifs and / or positional effect from the simulation")
         model = splice_net_model(
             options.n_motif,
@@ -1025,9 +1040,9 @@ if __name__ == '__main__':
     # evaluate the model
     r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, prediction, y_test, positional_effect, motifs)
     # write to screen
-    print(TimeString(), "evaluation = ", r1, r2, signloss)
-    print(TimeString(), "motif rank", str(rnk))
-    print(TimeString(), "motif info", str(info))
+    print(time_string(), "evaluation = ", r1, r2, signloss)
+    print(time_string(), "motif rank", str(rnk))
+    print(time_string(), "motif info", str(info))
 
     # write to log
     log.write('PSI/positional_effect/signloss:' + str(r1) + '\t' + str(r2) + '\t' + str(signloss) + '\n')

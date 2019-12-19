@@ -22,7 +22,7 @@ letter2num = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
 
 # return a time string
-def TimeString():
+def time_string():
     return datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
 
 
@@ -169,7 +169,7 @@ def generate_training_data(
         index
 ):
     if seqs == []:
-        print(TimeString(), "ERROR: seqs empty. cannot generate training data")
+        print(time_string(), "ERROR: seqs empty. cannot generate training data")
         raise
 
     n_region = 0
@@ -200,7 +200,7 @@ def generate_training_data(
 
     # group by
     if group_by == 'random':
-        print(TimeString(), "group data randomly")
+        print(time_string(), "group data randomly")
         idx = numpy.arange(n_exon * n_experiment)
         numpy.random.shuffle(idx)
         for i in range(n_region + 1):
@@ -212,7 +212,7 @@ def generate_training_data(
     # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
 
     if remove_non_regulated:
-        print(TimeString(), "remove non-regulated exons")
+        print(time_string(), "remove non-regulated exons")
         sel1 = numpy.where(abs(y - 0.5) < 0.001)
 
         x2 = [[]] * (n_region + 1)
@@ -260,7 +260,7 @@ def information_content(
 ):
     (a, l_motif, b, n_motif) = weights[0].shape
 
-    # print(TimeString(), "generate all possible kmers of length ",l_motif)
+    # print(time_string(), "generate all possible kmers of length ",l_motif)
     if len(kmers) == 0:
         kmers = Generate_all_kmers(l_motif)
 
@@ -268,7 +268,7 @@ def information_content(
     kmer_shape = (4, l_motif, 1)
     ekmers = ekmers.reshape(ekmers.shape[0], 4, l_motif, 1)
 
-    # print(TimeString(),  "scoring short sequences using the first layer")
+    # print(time_string(),  "scoring short sequences using the first layer")
     model2 = Sequential()
 
     # layer 1
@@ -284,14 +284,14 @@ def information_content(
     p = numpy.ones(n_kmer) / n_kmer
     info_max = -sum(p * numpy.log2(p))
 
-    # print(TimeString(), "calcualte info")
+    # print(time_string(), "calcualte info")
     for i in range(n_motif):
         score = numpy.exp(activations[:, 0, 0, i])
         p = score / sum(score)
         info[i] = -sum(p * numpy.log2(p))
     info = 1 - info / info_max
 
-    # print(TimeString(), "calculate rank")
+    # print(time_string(), "calculate rank")
     for i in range(n_motif):
         am = numpy.argsort(activations[:, 0, 0, i])  # small first
         topkmer[i] = am[-1]
@@ -504,7 +504,7 @@ def merge_models_with_job_name(
         power=1,
         min_info=0,
         compile_model=False):
-    print(TimeString(), "load motifs")
+    print(time_string(), "load motifs")
     motifs = []
     with open(motif_filename, 'rb') as f:
         motifs, positional_effect = pickle.load(f)
@@ -512,7 +512,7 @@ def merge_models_with_job_name(
         raise SystemExit("ERROR: no *-motif.pickle file found!")
 
     n_motif = len(motifs)
-    print(TimeString(), str(n_motif) + " motifs")
+    print(time_string(), str(n_motif) + " motifs")
 
     # determine how many models to merge
     n_model = 0
@@ -530,7 +530,7 @@ def merge_models_with_job_name(
     for filename in os.listdir('.'):
         if fnmatch.fnmatch(filename, model_filename_pattern):
             i = i + 1
-            print(TimeString(),
+            print(time_string(),
                   'loading ' + str(i) + ' of ' + str(n_model) + ' models: ' + filename + '                      ',
                   end='\r')
             sys.stdout.flush()
@@ -539,12 +539,12 @@ def merge_models_with_job_name(
             weights.append(model.get_weights())
     print("")
 
-    print(TimeString(), "calculating info and rank for " + str(n_model) + " models                    ", end='\r')
+    print(time_string(), "calculating info and rank for " + str(n_model) + " models                    ", end='\r')
     infos = numpy.zeros((n_model, n_motif))
     rnks = numpy.zeros((n_model, n_motif), dtype=int)
     topkmers = numpy.zeros((n_model, n_motif), dtype=int)
     for i in range(n_model):
-        print(TimeString(), "calculating info and rank for " + str(n_model) + " models: " + str(i + 1), end='\r')
+        print(time_string(), "calculating info and rank for " + str(n_model) + " models: " + str(i + 1), end='\r')
         sys.stdout.flush()
         info, rnk, topkmer, kmers = information_content(weights[i][:2], motifs, kmers)
         infos[i, :] = info
@@ -554,7 +554,7 @@ def merge_models_with_job_name(
     numpy.savetxt('rnks.txt', rnks, fmt='%d')
     numpy.savetxt('topkmers.txt', rnks, fmt='%d')
 
-    print(TimeString(), "merge model")
+    print(time_string(), "merge model")
     weight, infos, topkmers = merge_models(weights, method, power, min_info, infos, topkmers)
     merged_info, merged_rnk, topkmer, kmers = information_content(weight[:2], motifs, kmers)
     print(merged_rnk)
@@ -601,7 +601,7 @@ def merge_models(
         kmers = []
         topkmers = numpy.zeros((n_model, n_motif))
         for i in range(n_model):
-            print(TimeString(), "calculate information content for model " + str(i + 1), end='\r')
+            print(time_string(), "calculate information content for model " + str(i + 1), end='\r')
             sys.stdout.flush()
             info, rnk, topkmer, kmers = information_content(weights[i][:2], [], kmers)
             infos[i, :] = info
@@ -609,7 +609,7 @@ def merge_models(
 
     infos[infos < min_info] = 0
 
-    print(TimeString(), "merging models                                                                         ")
+    print(time_string(), "merging models                                                                         ")
     # initialize the merged model with the first model in the list. 
     merged_weights = copy.deepcopy(weights[0])
 
@@ -706,7 +706,7 @@ def merge_models(
             # merged_weights[2][(i*n_region):((i+1)*n_region)] = weights[res][2][(i*n_region):((i+1)*n_region)]
 
     else:
-        print(TimeString(), "ERROR: wrong merge method", method)
+        print(time_string(), "ERROR: wrong merge method", method)
         raise
 
     return merged_weights, infos, topkmers
@@ -724,7 +724,7 @@ def merge_two_models_by_motif_info(model, model2):
     n_region2, n_motif2, l_motif2, l_seq2 = get_model_parameters(model2)
 
     if n_region != n_region2 or n_motif != n_motif2 or l_motif != l_motif2:
-        print(TimeString(), "ERROR: models cannot be merged!")
+        print(time_string(), "ERROR: models cannot be merged!")
         raise
 
     # get motif information content
@@ -938,7 +938,7 @@ numpy.savetxt('pwm.txt',numpy.transpose(model.layers[4].get_weights()[0][:,:,:,0
 '''
 
 
-def parse_pwm_from_MatrixREDUCE_output(filename):
+def parse_pwm_from_matrix_reduce_output(filename):
     # filename: path to a psam file in MatrixREDUCE output folder, typically psam_001.xml
 
     cmd = "more " + filename + "  | grep '#' | grep -v '=' | grep -v opt | cut -d '#' -f 1 >" + filename + "tmp"
@@ -947,3 +947,20 @@ def parse_pwm_from_MatrixREDUCE_output(filename):
     os.system('rm ' + filename + 'tmp')
 
     return numpy.transpose(pwm)
+
+
+def parse_positional_effect_from_matrix_reduce_log(filename):
+    # filename: path to MatrixREDUCE.log file
+
+    cmd = 'more '+ filename + ' | grep "statistics" -A 3 | grep slope | head -n 1 | cut -f 2 | sed "s/=/\t/g" | cut -f 2 >' + filename + '.statistics '
+    os.system(cmd)
+    positional_effect = numpy.loadtxt(filename+'.statistics')
+
+    return positional_effect
+
+def positional_effect_normalization(pe,scale):
+    # scale positional effect array such that the sum is close to 0
+    pe[pe>0] = pe[pe>0] / sum(pe[pe>0])
+    pe[pe < 0] = -pe[pe < 0] / sum(pe[pe < 0])
+    pe = pe * scale / (max(pe)-min(pe)) * 2
+    return pe
