@@ -1047,8 +1047,7 @@ if __name__ == '__main__':
         print(time_string(), "motif rank", str(rnk))
         print(time_string(), "motif info", str(info))
 
-        # CNN bias. may be doesn't matter.
-        #TODO: skip this line
+        # CNN bias. this is not that important. the model will figure it out slowly
         weights[1] = weights[1] - 4
 
         pos_eff[0] = positional_effect_normalization(pos_eff[0], 100)
