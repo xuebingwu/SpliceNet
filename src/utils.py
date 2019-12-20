@@ -939,9 +939,11 @@ numpy.savetxt('pwm.txt',numpy.transpose(model.layers[4].get_weights()[0][:,:,:,0
 
 def parse_pwm_from_matrix_reduce_output(filename):
     # filename: path to a psam file in MatrixREDUCE output folder, typically psam_001.xml
-    # what if there is no such file?
+
+    # if there is no such file, for example when no significant motif can be found
     if not path.exists(filename):
         return numpy.zeros(1)
+
     cmd = "more " + filename + "  | grep '#' | grep -v '=' | grep -v opt | cut -d '#' -f 1 >" + filename + "tmp"
     os.system(cmd)
     pwm = numpy.loadtxt(filename + 'tmp')
@@ -953,15 +955,16 @@ def parse_pwm_from_matrix_reduce_output(filename):
 def parse_positional_effect_from_matrix_reduce_log(filename):
     # filename: path to MatrixREDUCE.log file
 
-    cmd = 'more '+ filename + ' | grep "statistics" -A 3 | grep slope | head -n 1 | cut -f 2 | sed "s/=/\t/g" | cut -f 2 >' + filename + '.statistics '
+    cmd = 'more ' + filename + ' | grep "statistics" -A 3 | grep slope | head -n 1 | cut -f 2 | sed "s/=/\t/g" | cut -f 2 >' + filename + '.statistics '
     os.system(cmd)
-    positional_effect = numpy.loadtxt(filename+'.statistics')
+    positional_effect = numpy.loadtxt(filename + '.statistics')
 
     return positional_effect
 
-def positional_effect_normalization(pe,scale):
-    # scale positional effect array such that the sum is close to 0
-    pe[pe>0] = pe[pe>0] / sum(pe[pe>0])
+
+def positional_effect_normalization(pe, scale):
+    # scale positional effect array such that the sum is close to 0 and the max and min is close to scale and -scale
+    pe[pe > 0] = pe[pe > 0] / sum(pe[pe > 0])
     pe[pe < 0] = -pe[pe < 0] / sum(pe[pe < 0])
-    pe = pe * scale / (max(pe)-min(pe)) * 2
+    pe = pe * scale / (max(pe) - min(pe)) * 2
     return pe
