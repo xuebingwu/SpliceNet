@@ -618,6 +618,8 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
     '''
     Use MatrixREDUCE to identify motifs and positional effect
 
+    # python splicenet.py --matrix_reduce  --n_motif 100 --n_region 4 --load_simulator motif100region4
+
     # example usage using simulated data
 
     from splicenet import *
@@ -689,62 +691,63 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
     print(time_string(), "motif info", str(info))
     '''
 
-    # calculate the correlation between exon PSI and splicing factor expression on the training set
+    print(time_string(),"calculate the correlation between exon PSI and RBP expression on the training set")
     cor_train = calculate_exon_SF_correlation(x_train, y_train, n_expr)
 
-    # write exon-SF correlation and absolute correlation to a file for MatrixREDUCE
+    print(time_string(), "write exon-RBP correlation to files as MatrixREDUCE input")
     for i in range(n_motif):
         f1 = open('cor_PSI_SF-' + str(i) + '.txt', 'w')
-        f2 = open('cor_PSI_SF-' + str(i) + '.abs.txt', 'w')
+        #f2 = open('cor_PSI_SF-' + str(i) + '.abs.txt', 'w')
         for j in range(n_exon):
             f1.write(str(j) + '\t' + str(cor_train[j, i]) + '\n')
-            f2.write(str(j) + '\t' + str(abs(cor_train[j, i])) + '\n')
+            #f2.write(str(j) + '\t' + str(abs(cor_train[j, i])) + '\n')
         f1.close()
-        f2.close()
+        #f2.close()
 
-    # write sequences in each region,
+    print(time_string(), "write sequences in each region to files as MatrixREDUCE input")
     for i in range(n_region):
         seqs = reverse_encode_seqs(seqs_train[i])
         write_fasta(seqs, 'sequence-region-' + str(i) + '.fasta')
 
     # concatenate into a single sequence
-    os.system('cp sequence-region-0.fasta sequence-concat.fasta')
-    for i in range(1, n_region):
-        concat_fasta(reverse_encode_seqs(seqs_train[i]), 'sequence-concat.fasta')
+    #os.system('cp sequence-region-0.fasta sequence-concat.fasta')
+    #for i in range(1, n_region):
+    #    concat_fasta(reverse_encode_seqs(seqs_train[i]), 'sequence-concat.fasta')
 
     # initialize a model
     model = splice_net_model(n_motif, n_region, l_seq, l_motif, 'relu', False, False, 'adam', 0)
     weights = model.layers[n_region].get_weights()
     positional_effect = model.layers[-1].get_weights()
 
-    # perform motif discovery in each region for each motif
+    print(time_string(), "MatrixREDUCE motif discovery in each region for each RBP")
     # TODO: may need take the majority vote from multiple regions? the positional effect is the slope
     for i in range(n_motif):
-        # first perform motif discovery by using the concatenated sequence and absolute correlation
-        # note that sometimes no significant motif is found
-        # in this case will use motif found in individual regions
-        outputdir = 'MatrixREDUCE-motif-' + str(i)
-        os.system('mkdir ' + outputdir)
-        cmd = 'MatrixREDUCE -sequence=sequence-concat.fasta -meas=cor_PSI_SF-' + str(
-            i) + '.abs.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir
-        os.system(cmd)
-        pwm = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
+        # strongest pos_eff across regions
+        max_abs_pe = 0
         for j in range(n_region):
             # for each region, run MatrixREDUCE and extract motif and the slope as the positional effect
             outputdir = 'MatrixREDUCE-motif-' + str(i) + '-region-' + str(j)
+            os.system('rm -rf ' + outputdir)
             os.system('mkdir ' + outputdir)
             cmd = 'MatrixREDUCE -sequence=sequence-region-' + str(j) + '.fasta -meas=cor_PSI_SF-' + str(
-                i) + '.txt -strand=1 -topo=X' + str(l_motif) + ' -output=' + outputdir 
+                i) + '.txt -strand=1 -topo=X' + str(l_motif) + ' -max_motif=1 -output=' + outputdir + ' -runlog=run.log'
             os.system(cmd)
-            pwm2 = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
-            # if no motif was found using concatenated sequences
-            if pwm.all() == 0:
-                pwm = pwm2
+
+            # if a significant motif is found, i.e. psam_001.xml file exits, load the optimized pwm (psam)
+            if path.exists(outputdir + '/psam_001.xml'):
+                pwm = parse_pwm_from_matrix_reduce_output(outputdir + '/psam_001.xml')
+            else:# otherwise parse the motif from .log file and convert it to a pwm
+                pwm = parse_motif_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
+
+            # extract positional effect
             positional_effect[0][i + j*n_motif][0] = parse_positional_effect_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
-        if pwm.all() != 0:
-            weights[0][:, :, :, i][:, :, 0] = pwm
-        else:
-            weights[0][:, :, :, i][:, :, 0] = 0
+
+            # use motif/pos_eff from the region with the strongest pos_eff
+            if abs(positional_effect[0][i + j*n_motif][0]) > max_abs_pe:
+                max_abs_pe = abs(positional_effect[0][i + j*n_motif][0])
+                weights[0][:, :, :, i][:, :, 0] = pwm
+
+    os.system('rm -rf MatrixREDUCE')
     os.system("mkdir MatrixREDUCE")
     os.system("mv sequence*.fasta cor_* MatrixREDUCE* MatrixREDUCE")
     return weights,positional_effect
@@ -1044,8 +1047,10 @@ if __name__ == '__main__':
         print(time_string(), "motif rank", str(rnk))
         print(time_string(), "motif info", str(info))
 
-        # CNN bias
+        # CNN bias. may be doesn't matter.
+        #TODO: skip this line
         weights[1] = weights[1] - 4
+
         pos_eff[0] = positional_effect_normalization(pos_eff[0], 100)
 
         # set the model weights to those learned by MatrixREDUCE

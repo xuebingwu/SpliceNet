@@ -39,7 +39,6 @@ def file_len(fname):
             pass
     return i + 1
 
-
 # encode a single sequence
 def encode_seq(seq):
     d = numpy.zeros((4, len(seq)), numpy.int8)
@@ -769,12 +768,11 @@ def calculate_exon_SF_correlation(x, y, n_experiment):
     n_motif = x[n_region].shape[1]
     n_exon = int(x[n_region].shape[0] / n_experiment)
     index = numpy.arange(n_experiment)
-    print(n_region, n_motif, n_exon)
     # SF expression matrix, each row is an experiment, each column is a SF
     expr = x[n_region][index * n_exon, :]
     cor = numpy.zeros((n_exon, n_motif), dtype=float)
     for i in range(n_exon):
-        print("calculating for exon ", i + 1, '                                     ', end='\r')
+        print(time_string()," -- exon ", i + 1, '                                     ', end='\r')
         for j in range(n_motif):
             cor[i, j] = numpy.corrcoef(y[index * n_exon + i].flatten(), expr[:, j].flatten())[0, 1]
     return cor
@@ -951,6 +949,16 @@ def parse_pwm_from_matrix_reduce_output(filename):
 
     return numpy.transpose(pwm)
 
+def parse_motif_from_matrix_reduce_log(filename):
+    # filename: path to MatrixREDUCE.log file
+
+    cmd = 'more ' + filename + ' | grep "matches\[matched_ids/all_ids\]:" | sed "s/motif:/\t/g" | cut -f 4 >' + filename + '.motif '
+    os.system(cmd)
+    f = open(filename+'.motif')
+    motif = f.readline().strip()
+    f.close()
+
+    return encode_seq(motif)
 
 def parse_positional_effect_from_matrix_reduce_log(filename):
     # filename: path to MatrixREDUCE.log file
