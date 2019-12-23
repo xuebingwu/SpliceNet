@@ -1067,10 +1067,14 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
     pwms=model.layers[n_region].get_weights()[0]
+
     for i in range(n_motif):
+        pwm = pwms[:, :, :, i][:, :, 0]
         if normalize:
-            logomaker.Logo(pandas.DataFrame(numpy.transpose(pwm_normalized_by_info(pwms[:, :, :, i][:, :, 0])), columns=['A', 'C', 'G', 'U']))
-        else:
-            logomaker.Logo(pandas.DataFrame(numpy.transpose(pwms[:,:,:,i][:,:,0]),columns=['A','C','G','U']))
+            pwm = pwm_normalized_by_info(pwm)
+        logo = logomaker.Logo(pandas.DataFrame(numpy.transpose(pwm), columns=['A', 'C', 'G', 'U']))
+        if normalize:
+            logo.ax.set_ylabel('Information (bits)')
+            logo.ax.set_ylim([0, 2])
         plt.savefig(outputlabel+'-'+str(i)+'.png')
         plt.close()

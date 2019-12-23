@@ -172,7 +172,7 @@ def initialize_splice_net(
         # set the motif weight matrix
         motif_weights = model.layers[n_region].get_weights()
         for i in range(n_motif):
-            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif)) # weights
+            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif))**4 # weights
             pwms[i] = pwm_normalization(pwms[i])
             motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)
             motif_weights[1][i] = - motif_score_threshold  # bias
@@ -807,8 +807,8 @@ if __name__ == '__main__':
                       default=0)
     parser.add_option("--effect_scale", dest="effect_scale", help="RBP positional effect scaling factor. Default 700 ",
                       type=float, default=700)
-    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A uniform noise of [0,x] is added to motif pwm (0<=x<=1). Default 0",
-                      type=float, default=0)
+    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A noise of x^4 (x drawed from a uniform [0,motif_degeneracy] is added to motif pwm. Default 0",
+                      type=float, default=1.0)
     parser.add_option("--fraction_functional", dest="fraction_functional",
                       help="Fraction of the regions that are functional. Default 1.0. ", type=float, default=1.0)
     # training
