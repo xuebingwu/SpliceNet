@@ -16,6 +16,19 @@ from os import path
 import time
 import datetime
 
+# logo
+import logomaker
+import pandas
+
+
+# for plotting
+import matplotlib
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+
+
 # map letters to numbers
 letter2num = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
 
@@ -350,12 +363,14 @@ def layer1_motif(weights, N, alpha, activation_func, output_label):
     nw = activations / ma
     # for each filter, generate pwm for activation > 0.7
     for i in range(n_motif):  # for each filter
+        if ma[:,:,i] == 0:
+            continue
         pwm = numpy.sum(rndseqs[nw[:, 0, 0, i] > alpha, :, :], axis=0)
         pwm = pwm[:, :, 0]
         num = numpy.sum(pwm[:, 0])
         if num < 20:
             continue
-        pwm = float(pwm) / float(num)
+        pwm = pwm / float(num)
         ic = info(pwm)
         filename = '-'.join([output_label, str(ic), str(i), str(num)])
         numpy.savetxt(filename, pwm, fmt='%f', delimiter='\t')
@@ -1035,3 +1050,14 @@ def positional_effect_normalization(pe, scale):
     pe[pe < 0] = -pe[pe < 0] / sum(pe[pe < 0])
     pe = pe * scale / (max(pe) - min(pe)) * 2
     return pe
+
+def logo_plot_for_all_motifs_in_a_model(model,outputlabel):
+    # plot logos of all motifs
+    # TODO: normalize the pwm
+    # get model parameters
+    n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
+    pwms=model.layers[n_region].get_weights()[0]
+    for i in range(n_motif):
+        logomaker.Logo(pandas.DataFrame(numpy.transpose(pwms[:,:,:,i][:,:,0]),columns=['A','C','G','U']))
+        plt.savefig(outputlabel+'-'+str(i)+'.png')
+        plt.close()

@@ -16,11 +16,6 @@ from keras.layers import Dense, Dropout, Flatten, Add, Multiply, Input, Conv2D, 
 
 from utils import *
 
-# for plotting
-import matplotlib
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 import numpy
 import pickle
@@ -857,8 +852,8 @@ if __name__ == '__main__':
                       action='store_true')
     parser.add_option("--no_plot", dest="no_plot", help="plot model diagram and output by default", default=False,
                       action='store_true')
-    parser.add_option("--motif_logo", dest="motif_logo",
-                      help="generate motif logos from filters in the convolutional layer. Need kpLogo installed",
+    parser.add_option("--no_motif_logo", dest="no_motif_logo",
+                      help="do not generate motif logos. Need logomaker to generate logos",
                       default=False, action='store_true')
 
     (options, args) = parser.parse_args()
@@ -1032,6 +1027,8 @@ if __name__ == '__main__':
         plt.hist(y_test, 100)
         plt.savefig(options.job_name + '.psi-hist.png')
         plt.close()
+    if not options.no_motif_logo:
+        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif")
 
     # TODO only use a subset of motifs for training/prediction
     if options.n_motif_train > 0 and options.n_motif_train < options.n_motif:
@@ -1162,9 +1159,10 @@ if __name__ == '__main__':
         plt.savefig(options.job_name + '.scatter.png')
         plt.close()
 
-    if options.motif_logo:
+    if not options.no_motif_logo:
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif")
         # generate motif logo from convolutional layers, need to have kpLogo directly callable 
-        layer1_motif(model.layers[options.n_region].get_weights(), 1000000, 0.7, 'relu', options.job_name)
+        #layer1_motif(model.layers[options.n_region].get_weights(), 1000000, 0.7, 'relu', options.job_name)
         # TODO: replace the code with exact kernal2pwm transformation: https://github.com/gao-lab/kernel-to-PWM
         # TODO: initialize kernal using pwm 2 kernal transformation. but how to deal with bias
 
