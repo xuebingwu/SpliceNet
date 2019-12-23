@@ -172,7 +172,7 @@ def initialize_splice_net(
         # set the motif weight matrix
         motif_weights = model.layers[n_region].get_weights()
         for i in range(n_motif):
-            pwms[i] = pwms[i] + motif_degeneracy * numpy.random.uniform(0,1,(4, l_motif)) # weights
+            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif)) # weights
             pwms[i] = pwm_normalization(pwms[i])
             motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)
             motif_weights[1][i] = - motif_score_threshold  # bias
@@ -1028,7 +1028,9 @@ if __name__ == '__main__':
         plt.savefig(options.job_name + '.psi-hist.png')
         plt.close()
     if not options.no_motif_logo:
-        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif")
+        if options.matrix_reduce:
+            normalization = True
+        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif",normalization)
 
     # TODO only use a subset of motifs for training/prediction
     if options.n_motif_train > 0 and options.n_motif_train < options.n_motif:

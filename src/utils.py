@@ -95,9 +95,19 @@ def top_seq_of_pwm(m):
 
 def pwm_normalization(m):
     # each position sum up to 1
+    m2 = numpy.zeros(m.shape)
     for i in range(m.shape[1]):
-        m = m / sum(m[:,i])
-    return m
+        m2[:,i] = m[:,i] / sum(m[:,i])
+    return m2
+
+def pwm_normalized_by_info(m):
+    # there should be no negative values in m
+    m2 = pwm_normalization(m)
+    for i in range(m2.shape[1]):
+        IC = 2 + sum(m2[:,i] * numpy.log2(m2[:,i]))
+        m2[:,i] = m2[:,i]*IC
+    return m2
+
 
 def reverse_encode_seqs(m):
     seqs = []
@@ -1051,13 +1061,16 @@ def positional_effect_normalization(pe, scale):
     pe = pe * scale / (max(pe) - min(pe)) * 2
     return pe
 
-def logo_plot_for_all_motifs_in_a_model(model,outputlabel):
+def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
     # plot logos of all motifs
-    # TODO: normalize the pwm
+    # TODO: how to normalize pwm with negative values
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
     pwms=model.layers[n_region].get_weights()[0]
     for i in range(n_motif):
-        logomaker.Logo(pandas.DataFrame(numpy.transpose(pwms[:,:,:,i][:,:,0]),columns=['A','C','G','U']))
+        if normalize:
+            logomaker.Logo(pandas.DataFrame(numpy.transpose(pwm_normalized_by_info(pwms[:, :, :, i][:, :, 0])), columns=['A', 'C', 'G', 'U']))
+        else:
+            logomaker.Logo(pandas.DataFrame(numpy.transpose(pwms[:,:,:,i][:,:,0]),columns=['A','C','G','U']))
         plt.savefig(outputlabel+'-'+str(i)+'.png')
         plt.close()
