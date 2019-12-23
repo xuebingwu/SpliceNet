@@ -72,6 +72,19 @@ def reverse_encode_seq(m):
         seq = seq + ab[numpy.where(m[:, i] == 1)[0][0]]
     return seq
 
+def top_seq_of_pwm(m):
+    # the top scored sequence of a matrix
+    ab = 'ACGT'
+    seq = ''
+    for i in range(m.shape[1]):
+        seq = seq + ab[numpy.where(m[:, i] == max(m[:,i]))[0][0]]
+    return seq
+
+def pwm_normalization(m):
+    # each position sum up to 1
+    for i in range(m.shape[1]):
+        m = m / sum(m[:,i])
+    return m
 
 def reverse_encode_seqs(m):
     seqs = []
@@ -103,12 +116,12 @@ def concat_fasta(seqs, filename):
 
 # encoding N random sequences of length L
 def random_encoded_seqs(N, L):
-    x = numpy.zeros((N, 4, L), numpy.int8)
+    x = numpy.zeros((N, 4, L), numpy.float32)
     # random sequence 
     a = numpy.random.random_integers(0, 3, size=(N, L))
     for i in range(N):
         for j in range(L):
-            x[i, a[i, j], j] = 1
+            x[i, a[i, j], j] = 1.0
     return x
 
 
@@ -342,7 +355,7 @@ def layer1_motif(weights, N, alpha, activation_func, output_label):
         num = numpy.sum(pwm[:, 0])
         if num < 20:
             continue
-        pwm = pwm / float(num)
+        pwm = float(pwm) / float(num)
         ic = info(pwm)
         filename = '-'.join([output_label, str(ic), str(i), str(num)])
         numpy.savetxt(filename, pwm, fmt='%f', delimiter='\t')
@@ -449,15 +462,61 @@ def total_motif_score(pwm, encoded_seq, min_score):
 def pwm_similarity(w1, w2):
     '''
     # example usage:
-    from splicenet10 import *
-    model1=load_model('motif20-model-1.h5')
-    model2=load_model('motif20-model-2.h5')
-    w1=model1.layers[2].get_weights()
-    w2=model2.layers[2].get_weights()
+    from splicenet import *
+    m1=load_model('motif100region4new1002-model-1.h5')
+    m2=load_model('motif100region4new1002-model-2.h5')
+    w1=m1.layers[4].get_weights()
+    w2=m2.layers[4].get_weights()
     s=pwm_similarity(w1[0][:,:,:,0],w2[0][:,:,:,0])
     '''
     return numpy.corrcoef(w1.flatten(), w2.flatten())[0, 1]
 
+def hamming_distance(seq1,seq2):
+    if len(seq1) != len(seq2):
+        return -1
+    d = 0
+    for i in range(len(seq1)):
+        d = d + (seq1[i] != seq2[i])
+    return d
+
+def hamming_distance_pwm(m1,m2):
+    # hamming distance between the top seq of two pwms
+    topseq1 = top_seq_of_pwm(m1)
+    topseq2 = top_seq_of_pwm(m2)
+
+    return hamming_distance(topseq1,topseq2),topseq1,topseq2
+
+
+def model_similarity(m1,m2):
+    # similarity between two models
+    # return similarity between each motif, pos_eff, and bias
+
+    # get model parameters to see if they are comparable
+    n_region, n_motif, l_motif, l_seq = get_model_parameters(m1)
+    n_region2, n_motif2, l_motif2, l_seq2 = get_model_parameters(m2)
+
+    if n_region != n_region2 or n_motif != n_motif2 or l_motif != l_motif2:
+        print(time_string(), "Error: the two models cannot be compared!")
+        raise
+
+    # pwm correlation and hamming distance of the top sequence of each motif
+    w1=m1.get_weights()
+    w2=m2.get_weights()
+    pwm_sim = numpy.zeros(n_motif)
+    pwm_dis = numpy.zeros(n_motif,dtype=int)
+    for i in range(n_motif):
+        pwm_sim[i]=pwm_similarity(w1[0][:,:,:,i],w2[0][:,:,:,i])
+        pwm_dis[i],seq1,seq2 = hamming_distance_pwm(w1[0][:,:,:,i],w2[0][:,:,:,i])
+
+    # correlation between motif bias
+    #bias_cor = numpy.corrcoef(w1[1].flatten(),w2[1].flatten())[0,1]
+    #bias_mse = keras.losses.mean_squared_error(w1[1], w2[1])
+    #bias_tot = keras.losses.mean_squared_error(w1[1], 0)
+
+    # pos_eff correlation
+    pos_eff_cor = numpy.corrcoef(w1[2].flatten(),w2[2].flatten())[0,1]
+
+    return pwm_sim,pwm_dis, pos_eff_cor
 
 # merge a list of models    
 # method: max_motif_info, max_motif_info_concensus, average,

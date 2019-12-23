@@ -6,6 +6,8 @@ import os, sys, copy, fnmatch
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID";
 os.environ["CUDA_VISIBLE_DEVICES"] = "";
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from optparse import OptionParser
 
 import keras
@@ -27,6 +29,7 @@ from keras.utils import multi_gpu_model
 
 
 # TODO need to implement multi_gpu_model. It changes layers. Need to re-wrote get_parameters etc.
+#TODO: automatically adjust effect_scale until PSI distribution looks good
 
 # create and compile a splice net model
 def splice_net_model(
@@ -147,7 +150,8 @@ def initialize_splice_net(
         predefined_model,  # a predefined model, if [], will initialize with random motif and positional effect
         effect_scale,  # RBP positional effect scaling factors
         fraction_functional,  # fraction of the regions that are functional
-        n_mismatch  # number of mismatch allowed
+        n_mismatch,  # number of mismatch allowed
+        motif_degeneracy=0   #
 ):
     if mode == 'keras_default':
         # do not change default values
@@ -173,7 +177,9 @@ def initialize_splice_net(
         # set the motif weight matrix
         motif_weights = model.layers[n_region].get_weights()
         for i in range(n_motif):
-            motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)  # weights
+            pwms[i] = pwms[i] + motif_degeneracy * numpy.random.uniform(0,1,(4, l_motif)) # weights
+            pwms[i] = pwm_normalization(pwms[i])
+            motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)
             motif_weights[1][i] = - motif_score_threshold  # bias
         model.layers[n_region].set_weights(motif_weights)
 
@@ -352,6 +358,11 @@ def splice_net_training(
         print(time_string(), "motif rank", rnk)
         print(time_string(), "motif info", str(info))
 
+        pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, new_model)
+        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif distance", str(pwm_dis))
+        print(time_string(), "pos eff cor", str(pos_eff_cor))
+
         model_weights.append(new_model.get_weights())
 
     output_model = model
@@ -389,7 +400,6 @@ def splice_net_training(
 
     return output_model, prediction
 
-
 def evaluate_trained_model(
         model,
         model0,
@@ -410,7 +420,6 @@ def evaluate_trained_model(
     info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs)
 
     return r1, r2, signloss, info, rnk
-
 
 # continue to train a model with new data, until no improvement can be achieved
 # use the same exons
@@ -595,6 +604,11 @@ def infinite_training(
         print(time_string(), "motif rank", rnk)
         print(time_string(), "motif info", str(info))
 
+        pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
+        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif distance", str(pwm_dis))
+        print(time_string(), "pos eff cor", str(pos_eff_cor))
+
         if RBP_expr != []:
             if index + n_experiment_train > RBP_expr.shape[1]:
                 break
@@ -609,6 +623,11 @@ def infinite_training(
     print(time_string(), "infinite training best model", r1, r2, signloss)
     print(time_string(), "motif rank", str(rnk))
     print(time_string(), "motif info", str(info))
+
+    pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,best_model)
+    print(time_string(), "motif similarity", str(pwm_sim))
+    print(time_string(), "motif distance", str(pwm_dis))
+    print(time_string(), "pos eff cor", str(pos_eff_cor))
 
     return best_model
 
@@ -722,6 +741,7 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
     print(time_string(), "MatrixREDUCE motif discovery in each region for each RBP")
     # TODO: may need take the majority vote from multiple regions? the positional effect is the slope
     for i in range(n_motif):
+        print(time_string()," -- RBP ", i , '                                     ', end='\r')
         # strongest pos_eff across regions
         max_abs_pe = 0
         for j in range(n_region):
@@ -770,8 +790,8 @@ if __name__ == '__main__':
     parser.add_option("--l_seq", dest="l_seq", help="length of input sequence, currently same for all regions",
                       type=int, default=200)
     parser.add_option("--l_motif", dest="l_motif", help="length of motif", type=int, default=6)
-    parser.add_option("--n_mismatch", dest="n_mismatch", help="motif mismatch allowed in simulation", type=int,
-                      default=2)
+    parser.add_option("--n_mismatch", dest="n_mismatch", help="motif mismatch allowed in simulation", type=float,
+                      default=2.0)
     parser.add_option("--n_exon_train", dest="n_exon_train", help="total number of exons for training", type=int,
                       default=1000)
     parser.add_option("--n_exon_test", dest="n_exon_test", help="total number of exons for test", type=int, default=100)
@@ -792,6 +812,8 @@ if __name__ == '__main__':
                       default=0)
     parser.add_option("--effect_scale", dest="effect_scale", help="RBP positional effect scaling factor. Default 700 ",
                       type=float, default=700)
+    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A uniform noise of [0,x] is added to motif pwm (0<=x<=1). Default 0",
+                      type=float, default=0)
     parser.add_option("--fraction_functional", dest="fraction_functional",
                       help="Fraction of the regions that are functional. Default 1.0. ", type=float, default=1.0)
     # training
@@ -897,8 +919,9 @@ if __name__ == '__main__':
 
         print(time_string(), "initialize with random motifs and positional effects")
         model0, motifs, positional_effect = initialize_splice_net(model0, "simulation", [], options.effect_scale, 1,
-                                                                  options.n_mismatch)
+                                                                  options.n_mismatch,options.motif_degeneracy)
 
+        #TODO: note that one may need effect_scale etc to faithfully simulate the data
         print(time_string(), "save simulator model")
         model0.save(options.job_name + '.simulator_model.h5')
 
@@ -1078,6 +1101,8 @@ if __name__ == '__main__':
             ]
         )
 
+        model.save(options.job_name + '-model-MatrixREDUCE.h5')
+
         prediction = model.predict(x_test)
 
     else:
@@ -1120,6 +1145,11 @@ if __name__ == '__main__':
     print(time_string(), "evaluation = ", r1, r2, signloss)
     print(time_string(), "motif rank", str(rnk))
     print(time_string(), "motif info", str(info))
+
+    pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,model)
+    print(time_string(), "motif similarity", str(pwm_sim))
+    print(time_string(), "motif distance", str(pwm_dis))
+    print(time_string(), "pos eff cor", str(pos_eff_cor))
 
     # write to log
     log.write('PSI/positional_effect/signloss:' + str(r1) + '\t' + str(r2) + '\t' + str(signloss) + '\n')
