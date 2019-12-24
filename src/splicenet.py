@@ -22,6 +22,8 @@ import pickle
 
 from keras.utils import multi_gpu_model
 
+# example useage:
+# python splicenet.py  --matrix_reduce --n_motif=100 --n_region=4 --motif_degeneracy 0.99 --job_name=motif100region4degeneracy0.99 --effect_scale=2000 --n_mismatch 2 --n_exon_train=2000 --n_experiment_train=2000 --RBP_expr=../data/RBP_GTEx_top1000_mean_normalized.txt --psi_noise 0.1
 
 # TODO need to implement multi_gpu_model. It changes layers. Need to re-wrote get_parameters etc.
 #TODO: automatically adjust effect_scale until PSI distribution looks good
@@ -212,7 +214,8 @@ def splice_net_simulation(
         gamma_scale,
         group_by,
         # how training data is organized: EXPERIMENT, EXON (TODO), RANDOM #TODO: systematically compare options for motif and positionaleffect learning
-        remove_non_regulated  # TODO: remove PSI = 0.5 due to lack of motif match
+        remove_non_regulated,  # TODO: remove PSI = 0.5 due to lack of motif match
+        PSI_noise   # 0-1,
 ):
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
@@ -245,6 +248,9 @@ def splice_net_simulation(
     x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model, gamma_shape,
                                                                     gamma_scale, n_experiment_test, group_by,
                                                                     remove_non_regulated, 0)
+
+    y_train = y_train + numpy.random.uniform(0,PSI_noise,y_train.shape)
+    y_test = y_test + numpy.random.uniform(0,PSI_noise,y_test.shape)
 
     # TODO: remove non-informative data
     # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
@@ -807,8 +813,10 @@ if __name__ == '__main__':
                       default=0)
     parser.add_option("--effect_scale", dest="effect_scale", help="RBP positional effect scaling factor. Default 700 ",
                       type=float, default=700)
-    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A noise of x^4 (x drawed from a uniform [0,motif_degeneracy] is added to motif pwm. Default 0",
+    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A noise of x^6 (x drawed from a uniform [0,motif_degeneracy] is added to motif pwm. Default 1",
                       type=float, default=1.0)
+    parser.add_option("--psi_noise", dest="psi_noise", help="A noise of x (drawed from a uniform [0,psi_noise] is added to simulated PSI. Default 0",
+                      type=float, default=0)
     parser.add_option("--fraction_functional", dest="fraction_functional",
                       help="Fraction of the regions that are functional. Default 1.0. ", type=float, default=1.0)
     # training
@@ -1012,7 +1020,8 @@ if __name__ == '__main__':
             options.gamma_shape,
             options.gamma_scale,
             options.group_by,
-            options.remove_non_regulated
+            options.remove_non_regulated,
+            options.psi_noise
         )
 
         # print(time_string(),"save simulation test data")
