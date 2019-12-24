@@ -193,7 +193,7 @@ def initialize_splice_net(
             print(time_string(), "Error: predefiend_model is empty!")
             raise
         model.layers[n_region].set_weights(predefined_model.layers[n_region].get_weights())
-    elif mode == 'copy_posiitonal_effect' or mode == 'coopy_both':
+    elif mode == 'copy_posiitonal_effect' or mode == 'copy_both':
         if predefined_model == []:
             print(time_string(), "Error: predefiend_model is empty!")
             raise
@@ -215,7 +215,9 @@ def splice_net_simulation(
         group_by,
         # how training data is organized: EXPERIMENT, EXON (TODO), RANDOM #TODO: systematically compare options for motif and positionaleffect learning
         remove_non_regulated,  # TODO: remove PSI = 0.5 due to lack of motif match
-        PSI_noise   # 0-1,
+        PSI_noise,   # 0-1,
+        effect_scale,
+        fraction_functional
 ):
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
@@ -240,17 +242,55 @@ def splice_net_simulation(
     seqs_train = generate_input_sequences(n_region, n_exon_train, l_seq)
     seqs_test = generate_input_sequences(n_region, n_exon_test, l_seq)
 
+    print(time_string(), "adjust effect_scale and pos_eff to get uniform distribution of PSI")
+    adjustment = 1.0
+    while True:
+        x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model,
+                                                                        gamma_shape,
+                                                                        gamma_scale, n_experiment_test, group_by,
+                                                                        remove_non_regulated, 0)
+        f1 = sum(y_test < 0.333) / len(y_test)
+        f3 = sum(y_test > 0.667) / len(y_test)
+        f2 = 1-f1-f3
+        if abs(f1-0.333) < 0.05 and abs(f2-0.333) < 0.05 and abs(f3-0.333) < 0.05:
+            break
+        elif f1 > 0.3 and f3 > 0.3 and f2 < 0.3: # V shape, reduce effect_scale by 1/3
+            w = model.layers[-1].get_weights()
+            w[0] = w[0] * 2/3
+            model.layers[-1].set_weights(w)
+            adjustment = adjustment * 2/3
+        elif f2 > 0.4 and f1 < 0.3 and f3 < 0.3: # invert V shape, increase effect_scale by 1/3
+            w = model.layers[-1].get_weights()
+            w[0] = w[0] * 4/3
+            model.layers[-1].set_weights(w)
+            adjustment = adjustment *4/3
+        else:
+            w = model.layers[-1].get_weights()
+            w[0] = generate_positional_effect(n_motif, n_region, effect_scale, fraction_functional)
+            model.layers[-1].set_weights(w)
+            adjustment=1.0
+        print(time_string(),"psi eveness (f1,f2,f3) - effect scale adjustment: ",f1,f2,f3,adjustment)
+
+    print(time_string(), "psi eveness (f1,f2,f3) - effect scale adjustment: ", f1, f2, f3, adjustment)
+
+    # plot PSI distribution
+    plt.hist(y_test, 100)
+    plt.savefig(options.job_name + '.psi-hist.png')
+    plt.close()
+
     # generate data
-    print(time_string(), "generate training and test data")
+    print(time_string(), "generate training data")
     x_train, y_train, index, input_seqs_train = generate_training_data(seqs_train, [], expression_train, model,
                                                                        gamma_shape, gamma_scale, n_experiment_train,
                                                                        group_by, remove_non_regulated, 0)
-    x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model, gamma_shape,
-                                                                    gamma_scale, n_experiment_test, group_by,
-                                                                    remove_non_regulated, 0)
+    #x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model, gamma_shape,
+    #                                                                gamma_scale, n_experiment_test, group_by,
+    #                                                                remove_non_regulated, 0)
 
-    y_train = y_train + numpy.random.uniform(0,PSI_noise,y_train.shape)
-    y_test = y_test + numpy.random.uniform(0,PSI_noise,y_test.shape)
+    if PSI_noise > 0:
+        print(time_string(),"adding noise to PSI",PSI_noise)
+        y_train = y_train + numpy.random.uniform(0,PSI_noise,y_train.shape)
+        y_test = y_test + numpy.random.uniform(0,PSI_noise,y_test.shape)
 
     # TODO: remove non-informative data
     # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
@@ -1021,7 +1061,9 @@ if __name__ == '__main__':
             options.gamma_scale,
             options.group_by,
             options.remove_non_regulated,
-            options.psi_noise
+            options.psi_noise,
+            options.effect_scale,
+            options.fraction_functional
         )
 
         # print(time_string(),"save simulation test data")
@@ -1032,10 +1074,6 @@ if __name__ == '__main__':
         # plot model structure
         keras.utils.plot_model(model0, to_file=options.job_name + '.model.png', show_shapes=True)
 
-        # plot PSI distribution
-        plt.hist(y_test, 100)
-        plt.savefig(options.job_name + '.psi-hist.png')
-        plt.close()
     if not options.no_motif_logo:
         if options.matrix_reduce:
             normalization = True
