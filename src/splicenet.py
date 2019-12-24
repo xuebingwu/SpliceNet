@@ -269,9 +269,9 @@ def splice_net_simulation(
             w[0] = generate_positional_effect(n_motif, n_region, effect_scale, fraction_functional)
             model.layers[-1].set_weights(w)
             adjustment=1.0
-        print(time_string(),"psi eveness (f1,f2,f3) - effect scale adjustment: ",f1,f2,f3,adjustment)
+        print(time_string(),"psi eveness (f1,f2,f3) - effect scale adjustment: ",f1,f2,f3,adjustment,"                             ",end='\r')
 
-    print(time_string(), "psi eveness (f1,f2,f3) - effect scale adjustment: ", f1, f2, f3, adjustment)
+    print(time_string(), "psi eveness (f1,f2,f3) - effect scale adjustment: ", f1, f2, f3, adjustment,"                           ")
 
     # plot PSI distribution
     plt.hist(y_test, 100)
