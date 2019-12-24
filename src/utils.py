@@ -94,20 +94,25 @@ def top_seq_of_pwm(m):
     return seq
 
 def pwm_normalization(m):
+    # normalize each position such that they sum up to 1
+    # if negative values are included, add a bias to the matrix such that the min is now 0. then normalize
+    # input: m is a matrix of shape (4,L)
+    mi = numpy.min(m)
+    if mi < 0:
+        m = m - mi
+    m = m + 1e-9
     # each position sum up to 1
-    m2 = numpy.zeros(m.shape)
     for i in range(m.shape[1]):
-        m2[:,i] = m[:,i] / sum(m[:,i])
-    return m2
+        m[:,i] = m[:,i] / sum(m[:,i])
+    return m
 
 def pwm_normalized_by_info(m):
-    # there should be no negative values in m
+    # scale each position by information content
     m2 = pwm_normalization(m)
     for i in range(m2.shape[1]):
         IC = 2 + sum(m2[:,i] * numpy.log2(m2[:,i]))
         m2[:,i] = m2[:,i]*IC
     return m2
-
 
 def reverse_encode_seqs(m):
     seqs = []
@@ -1072,6 +1077,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
         pwm = pwms[:, :, :, i][:, :, 0]
         if normalize:
             pwm = pwm_normalized_by_info(pwm)
+        #print(str(pwm))
         logo = logomaker.Logo(pandas.DataFrame(numpy.transpose(pwm), columns=['A', 'C', 'G', 'U']))
         if normalize:
             logo.ax.set_ylabel('Information (bits)')

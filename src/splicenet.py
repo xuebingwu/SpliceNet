@@ -172,7 +172,7 @@ def initialize_splice_net(
         # set the motif weight matrix
         motif_weights = model.layers[n_region].get_weights()
         for i in range(n_motif):
-            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif))**4 # weights
+            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif))**6 # weights
             pwms[i] = pwm_normalization(pwms[i])
             motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)
             motif_weights[1][i] = - motif_score_threshold  # bias
@@ -1162,7 +1162,7 @@ if __name__ == '__main__':
         plt.close()
 
     if not options.no_motif_logo:
-        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif")
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif",True)
         # generate motif logo from convolutional layers, need to have kpLogo directly callable 
         #layer1_motif(model.layers[options.n_region].get_weights(), 1000000, 0.7, 'relu', options.job_name)
         # TODO: replace the code with exact kernal2pwm transformation: https://github.com/gao-lab/kernel-to-PWM
