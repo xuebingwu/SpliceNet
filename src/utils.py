@@ -1067,11 +1067,11 @@ def parse_motif_from_matrix_reduce_log(filename):
 def parse_positional_effect_from_matrix_reduce_log(filename):
     # filename: path to MatrixREDUCE.log file
 
-    cmd = 'more ' + filename + ' | grep "statistics" -A 3 | grep slope | head -n 1 | cut -f 2 | sed "s/=/\t/g" | cut -f 2 >' + filename + '.statistics '
+    cmd = 'more ' + filename + ' | grep "statistics" -A 3 | grep slope | head -n 1 | cut -f 2,4 | sed "s/=/\t/g"  | cut -f 2,4 >' + filename + '.statistics '
     os.system(cmd)
-    positional_effect = numpy.loadtxt(filename + '.statistics')
+    positional_effect, pvalue = numpy.loadtxt(filename + '.statistics')
 
-    return positional_effect
+    return positional_effect, pvalue
 
 
 def positional_effect_normalization(pe, scale):
@@ -1135,4 +1135,10 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
         plt.savefig(outputlabel+'-'+str(i+1)+'-all.png')
         plt.close()
 
-
+#TODO
+def splice_net_summary(x_test,model):
+    # get model parameters
+    n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
+    targets = 0
+    regulators = 0
+    return targets, regulators

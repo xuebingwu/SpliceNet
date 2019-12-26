@@ -217,7 +217,8 @@ def splice_net_simulation(
         remove_non_regulated,  # TODO: remove PSI = 0.5 due to lack of motif match
         psi_noise,   # 0-1,
         effect_scale,
-        fraction_functional
+        fraction_functional,
+        adjust_pos_eff=True
 ):
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
@@ -253,7 +254,7 @@ def splice_net_simulation(
         f1 = sum(y_test < 0.333) / len(y_test)
         f3 = sum(y_test > 0.667) / len(y_test)
         f2 = 1-f1-f3
-        if abs(f1-0.333) < 0.05 and abs(f2-0.333) < 0.05 and abs(f3-0.333) < 0.05:
+        if (abs(f1-0.333) < 0.05 and abs(f2-0.333) < 0.05 and abs(f3-0.333) < 0.05 ) or adjust_pos_eff == False:
             break
         elif f1 > 0.3 and f3 > 0.3 and f2 < 0.3: # V shape, reduce effect_scale by 1/3
             w = model.layers[-1].get_weights()
@@ -292,11 +293,14 @@ def splice_net_simulation(
         plt.close()
         y_test = y_test2
 
-    if model_updated:
-        print(time_string(), "plot motifs with updated pos_eff")
-        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif",True)
-        print(time_string(), "save updated simulator model")
-        model.save(options.job_name + '.simulator_model.h5')
+    print(time_string(), "plot motifs with updated pos_eff")
+    logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif",True)
+    print(time_string(), "save updated simulator model")
+    model.save(options.job_name + '.simulator_model.h5')
+
+    # for each RBP, how many target exons
+    # for each exon, how many RBP regulators
+    targets, regulators = splice_net_summary(x_test,model)
 
     print(time_string(), "generate training data")
     x_train, y_train, index, input_seqs_train = generate_training_data(seqs_train, [], expression_train, model,
@@ -795,13 +799,15 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
     model = splice_net_model(n_motif, n_region, l_seq, l_motif, 'relu', False, False, 'adam', 0)
     weights = model.layers[n_region].get_weights()
     positional_effect = model.layers[-1].get_weights()
+    pvalue = [0] * n_motif * n_region
 
     print(time_string(), "MatrixREDUCE motif discovery in each region for each RBP")
     # TODO: may need take the majority vote from multiple regions? the positional effect is the slope
     for i in range(n_motif):
         print(time_string()," -- RBP ", i , '                                     ', end='\r')
         # strongest pos_eff across regions
-        max_abs_pe = 0
+        max_abs_pe = 0.0
+        min_pv = 1.0
         for j in range(n_region):
             # for each region, run MatrixREDUCE and extract motif and the slope as the positional effect
             outputdir = 'MatrixREDUCE-motif-' + str(i) + '-region-' + str(j)
@@ -818,11 +824,13 @@ def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_e
                 pwm = parse_motif_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
 
             # extract positional effect
-            positional_effect[0][i + j*n_motif][0] = parse_positional_effect_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
+            positional_effect[0][i + j*n_motif][0], pvalue[i + j*n_motif] = parse_positional_effect_from_matrix_reduce_log(outputdir + '/MatrixREDUCE.log')
 
-            # use motif/pos_eff from the region with the strongest pos_eff
+            # use motif/pos_eff from the region with the strongest pos_eff or min pvalue
             if abs(positional_effect[0][i + j*n_motif][0]) > max_abs_pe:
+            #if pvalue[i+j*n_motif] < min_pv:
                 max_abs_pe = abs(positional_effect[0][i + j*n_motif][0])
+                #min_pv = pvalue[i+j*n_motif]
                 weights[0][:, :, :, i][:, :, 0] = pwm
 
     os.system('rm -rf MatrixREDUCE')
@@ -989,15 +997,15 @@ if __name__ == '__main__':
         print(time_string(), "save simulator model")
         model0.save(options.job_name + '.simulator_model.h5')
 
-        with open(options.job_name + '-motif.pickle', 'wb') as f:
-            pickle.dump([motifs, positional_effect], f)
-            f.close()
+        #with open(options.job_name + '-motif.pickle', 'wb') as f:
+        #    pickle.dump([motifs, positional_effect], f)
+        #    f.close()
 
     else:
         print(time_string(), "load simulator model", options.simulator_job)
         model0 = load_model(options.simulator_job + '.simulator_model.h5')
-        with open(options.simulator_job + '-motif.pickle', 'rb') as f:
-            motifs, positional_effect = pickle.load(f)
+        #with open(options.simulator_job + '-motif.pickle', 'rb') as f:
+        #    motifs, positional_effect = pickle.load(f)
 
             # load test data if specificied
     seqs = []
@@ -1015,10 +1023,6 @@ if __name__ == '__main__':
         model = load_model(options.model_job + '.best_model.h5')
     else:
         model = []
-
-        # write motif into log
-    log.write(str(motifs) + '\n')
-    log.write(str(positional_effect.flatten()) + '\n')
 
     # infinite training: use the simulator to generate new training data and train the model until it no longer improves
     # allow one to train multiple models and then merge (n_initialization)
@@ -1070,6 +1074,9 @@ if __name__ == '__main__':
         exit()
 
     if options.test_job == '':
+        adjust_pos_eff = False
+        if options.simulator_job == "":
+            adjust_pos_eff = True
         print(time_string(), "simulating training and test data using the model")
         x_train, y_train, x_test, y_test, seqs_train, seqs_test = splice_net_simulation(
             model0,
@@ -1084,7 +1091,8 @@ if __name__ == '__main__':
             options.remove_non_regulated,
             options.psi_noise,
             options.effect_scale,
-            options.fraction_functional
+            options.fraction_functional,
+            adjust_pos_eff
         )
 
         # print(time_string(),"save simulation test data")
