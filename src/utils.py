@@ -93,6 +93,7 @@ def top_seq_of_pwm(m):
     return seq
 
 def kernal_to_pwm(W):
+    # take a kernal weight matrix (4xL) from a model and convert it two pwm (position sum up to 1)
     # modified from:
     #https://github.com/gao-lab/kernel-to-PWM/blob/master/k2p-1.0/code/kernel2PWM.py
     C =  numpy.exp(1) ** W
@@ -1129,7 +1130,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             for j in range(n_region):
                 if pe[j] > 0:
                     color[j] = 'green'
-            axs[b,1].bar([1,2,3,4],pe,color=color)
+            axs[b,1].bar(range(1,n_region+1),pe,color=color)
             axs[b,1].set_ylim(-max_pos_eff,max_pos_eff)
         plt.savefig(outputlabel+'-'+str(i+1)+'-all.png')
         plt.close()
