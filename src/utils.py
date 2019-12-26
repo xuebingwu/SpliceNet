@@ -26,8 +26,7 @@ import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
-
+import matplotlib.image as mpimg
 
 # map letters to numbers
 letter2num = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
@@ -93,22 +92,37 @@ def top_seq_of_pwm(m):
         seq = seq + ab[numpy.where(m[:, i] == max(m[:,i]))[0][0]]
     return seq
 
+def kernal_to_pwm(W):
+    # modified from:
+    #https://github.com/gao-lab/kernel-to-PWM/blob/master/k2p-1.0/code/kernel2PWM.py
+    C =  numpy.exp(1) ** W
+    P = numpy.apply_along_axis(lambda temp_col_vector: temp_col_vector / numpy.sum(temp_col_vector), axis=0, arr=C)
+    return pwm_normalization(P ** 4)
+
 def pwm_normalization(m):
     # normalize each position such that they sum up to 1
     # if negative values are included, add a bias to the matrix such that the min is now 0. then normalize
     # input: m is a matrix of shape (4,L)
-    mi = numpy.min(m)
-    if mi < 0:
-        m = m - mi
-    m = m + 1e-9
+
     # each position sum up to 1
     for i in range(m.shape[1]):
+        mi = numpy.min(m[:,i])
+        if mi <= 0 :
+            m[:,i] = m[:,i] - mi + 1e-9
         m[:,i] = m[:,i] / sum(m[:,i])
     return m
 
+'''
+from splicenet import *
+model = load_model('motif10region4degeneracy0.9-model-MatrixREDUCE.h5')
+model = load_model('motif10region4degeneracy0.9.simulator_model.h5')
+logo_plot_for_all_motifs_in_a_model(model,'yes',True)
+
+'''
 def pwm_normalized_by_info(m):
     # scale each position by information content
-    m2 = pwm_normalization(m)
+    #m2 = pwm_normalization(m)
+    m2 = kernal_to_pwm(m)
     for i in range(m2.shape[1]):
         IC = 2 + sum(m2[:,i] * numpy.log2(m2[:,i]))
         m2[:,i] = m2[:,i]*IC
@@ -1067,13 +1081,15 @@ def positional_effect_normalization(pe, scale):
     return pe
 
 def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
-    # plot logos of all motifs
-    # TODO: how to normalize pwm with negative values
+    # plot logos and pos_eff of all motifs
+
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
+
     pwms=model.layers[n_region].get_weights()[0]
 
     for i in range(n_motif):
+        print(time_string(), 'generate logo file for motif ',str(i), '                           ',end='\r')
         pwm = pwms[:, :, :, i][:, :, 0]
         if normalize:
             pwm = pwm_normalized_by_info(pwm)
@@ -1084,3 +1100,38 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             logo.ax.set_ylim([0, 2])
         plt.savefig(outputlabel+'-'+str(i)+'.png')
         plt.close()
+
+    # pos_eff
+    pos_eff = model.layers[-1].get_weights()[0].flatten()
+    max_pos_eff = max(abs(pos_eff))
+
+    # each PNG file contain 10 motifs
+    n_file = n_motif // 10 + 1
+    if n_motif % 10 == 0:
+        n_file = n_file -1
+
+    base = numpy.array(range(n_region),dtype=int)
+    for i in range(n_region):
+        base[i] = n_motif * i
+
+    for a in range(n_file):
+        fig, axs = plt.subplots(nrows=10, ncols=2, figsize=(40, 60), constrained_layout=True)
+        for b in range(10):
+            i = a*10 + b
+            if i>= n_motif:
+                break
+            img = mpimg.imread(outputlabel+'-'+str(i)+'.png')
+            os.system('rm '+outputlabel+'-'+str(i)+'.png')
+            axs[b,0].imshow(img)
+            axs[b,0].axis('off')
+            pe = pos_eff[base+i]
+            color = ['red'] * n_region
+            for j in range(n_region):
+                if pe[j] > 0:
+                    color[j] = 'green'
+            axs[b,1].bar([1,2,3,4],pe,color=color)
+            axs[b,1].set_ylim(-max_pos_eff,max_pos_eff)
+        plt.savefig(outputlabel+'-'+str(i+1)+'-all.png')
+        plt.close()
+
+

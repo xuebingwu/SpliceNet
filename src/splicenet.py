@@ -148,7 +148,7 @@ def initialize_splice_net(
         effect_scale,  # RBP positional effect scaling factors
         fraction_functional,  # fraction of the regions that are functional
         n_mismatch,  # number of mismatch allowed
-        motif_degeneracy=0   #
+        motif_degeneracy   #
 ):
     if mode == 'keras_default':
         # do not change default values
@@ -174,7 +174,7 @@ def initialize_splice_net(
         # set the motif weight matrix
         motif_weights = model.layers[n_region].get_weights()
         for i in range(n_motif):
-            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif))**6 # weights
+            pwms[i] = pwms[i] + numpy.random.uniform(0,motif_degeneracy,(4, l_motif))**8 # weights
             pwms[i] = pwm_normalization(pwms[i])
             motif_weights[0][:, :, :, i] = pwms[i].reshape(4, l_motif, 1)
             motif_weights[1][i] = - motif_score_threshold  # bias
@@ -215,7 +215,7 @@ def splice_net_simulation(
         group_by,
         # how training data is organized: EXPERIMENT, EXON (TODO), RANDOM #TODO: systematically compare options for motif and positionaleffect learning
         remove_non_regulated,  # TODO: remove PSI = 0.5 due to lack of motif match
-        PSI_noise,   # 0-1,
+        psi_noise,   # 0-1,
         effect_scale,
         fraction_functional
 ):
@@ -244,6 +244,7 @@ def splice_net_simulation(
 
     print(time_string(), "adjust effect_scale and pos_eff to get uniform distribution of PSI")
     adjustment = 1.0
+    model_updated = False
     while True:
         x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model,
                                                                         gamma_shape,
@@ -259,16 +260,19 @@ def splice_net_simulation(
             w[0] = w[0] * 2/3
             model.layers[-1].set_weights(w)
             adjustment = adjustment * 2/3
+            model_updated = True
         elif f2 > 0.4 and f1 < 0.3 and f3 < 0.3: # invert V shape, increase effect_scale by 1/3
             w = model.layers[-1].get_weights()
             w[0] = w[0] * 4/3
             model.layers[-1].set_weights(w)
             adjustment = adjustment *4/3
+            model_updated = True
         else:
             w = model.layers[-1].get_weights()
             w[0] = generate_positional_effect(n_motif, n_region, effect_scale, fraction_functional)
             model.layers[-1].set_weights(w)
             adjustment=1.0
+            model_updated = True
         print(time_string(),"psi eveness (f1,f2,f3) - effect scale adjustment: ",f1,f2,f3,adjustment,"                             ",end='\r')
 
     print(time_string(), "psi eveness (f1,f2,f3) - effect scale adjustment: ", f1, f2, f3, adjustment,"                           ")
@@ -278,7 +282,22 @@ def splice_net_simulation(
     plt.savefig(options.job_name + '.psi-hist.png')
     plt.close()
 
-    # generate data
+    if psi_noise > 0:
+        print(time_string(),"adding noise to test PSI",psi_noise)
+        y_test2 = y_test + numpy.random.uniform(0,psi_noise,y_test.shape)
+        plt.scatter(y_test.flatten(), y_test2.flatten(), s=1, alpha=0.2)
+        plt.xlabel("Original")
+        plt.ylabel("Noise added (" +str(psi_noise)+")")
+        plt.savefig(options.job_name + '.PSI.noise.png')
+        plt.close()
+        y_test = y_test2
+
+    if model_updated:
+        print(time_string(), "plot motifs with updated pos_eff")
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif",True)
+        print(time_string(), "save updated simulator model")
+        model.save(options.job_name + '.simulator_model.h5')
+
     print(time_string(), "generate training data")
     x_train, y_train, index, input_seqs_train = generate_training_data(seqs_train, [], expression_train, model,
                                                                        gamma_shape, gamma_scale, n_experiment_train,
@@ -287,10 +306,10 @@ def splice_net_simulation(
     #                                                                gamma_scale, n_experiment_test, group_by,
     #                                                                remove_non_regulated, 0)
 
-    if PSI_noise > 0:
-        print(time_string(),"adding noise to PSI",PSI_noise)
-        y_train = y_train + numpy.random.uniform(0,PSI_noise,y_train.shape)
-        y_test = y_test + numpy.random.uniform(0,PSI_noise,y_test.shape)
+    if psi_noise > 0:
+        print(time_string(),"adding noise to PSI",psi_noise)
+        y_train = y_train + numpy.random.uniform(0,psi_noise,y_train.shape)
+        #y_test = y_test + numpy.random.uniform(0,psi_noise,y_test.shape)
 
     # TODO: remove non-informative data
     # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
@@ -393,8 +412,7 @@ def splice_net_training(
 
         loss = new_model.evaluate(x_test2, y_test, verbose=0)
 
-        r1, r2, signloss, info, rnk = evaluate_trained_model(new_model, model0, new_model.predict(x_test2), y_test,
-                                                             positional_effect, motifs)
+        r1, r2, signloss, info, rnk = evaluate_trained_model(new_model, model0, new_model.predict(x_test2), y_test, motifs)
         print(time_string(), "initialization", i + 1, loss, r1, r2, signloss)
         print(time_string(), "motif rank", rnk)
         print(time_string(), "motif info", str(info))
@@ -446,16 +464,17 @@ def evaluate_trained_model(
         model0,
         prediction,
         y_test,
-        positional_effect,
         motifs
 ):
+    positional_effect = model0.layers[-1].get_weights()[0].flatten()
+
     # splicing prediction: correlation between predicted and actual splicing PSI
     r1 = numpy.corrcoef(prediction.flatten(), y_test.flatten())[0, 1]
     # splice net learning: correlation between predicted and actual positional effect 
-    r2 = numpy.corrcoef(positional_effect.flatten(), model.layers[-1].get_weights()[0].flatten())[0, 1]
+    r2 = numpy.corrcoef(positional_effect, model.layers[-1].get_weights()[0].flatten())[0, 1]
     # fraction of positional effect predicted with the right sign
     signloss = sum(
-        numpy.sign(positional_effect.flatten()) == numpy.sign(model.layers[-1].get_weights()[0].flatten())) / float(
+        numpy.sign(positional_effect) == numpy.sign(model.layers[-1].get_weights()[0].flatten())) / float(
         positional_effect.shape[0])
     # calculate information content of the learned motif and ranking of the actual motif
     info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs)
@@ -639,8 +658,7 @@ def infinite_training(
             model.save(job_name + '.best_model.h5')
         num_expr = num_expr + n_experiment_train
         print(time_string(), "calculating correlation")
-        r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test,
-                                                             positional_effect, motifs)
+        r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test, motifs)
         print(time_string(), "infinite training", num_expr, loss_new, r1, r2, signloss, no_improvement)
         print(time_string(), "motif rank", rnk)
         print(time_string(), "motif info", str(info))
@@ -659,8 +677,7 @@ def infinite_training(
 
     # load the best model
     best_model = load_model(job_name + '.best_model.h5')
-    r1, r2, signloss, info, rnk = evaluate_trained_model(best_model, model0, best_model.predict(x_test), y_test,
-                                                         positional_effect, motifs)
+    r1, r2, signloss, info, rnk = evaluate_trained_model(best_model, model0, best_model.predict(x_test), y_test,motifs)
     print(time_string(), "infinite training best model", r1, r2, signloss)
     print(time_string(), "motif rank", str(rnk))
     print(time_string(), "motif info", str(info))
@@ -853,8 +870,8 @@ if __name__ == '__main__':
                       default=0)
     parser.add_option("--effect_scale", dest="effect_scale", help="RBP positional effect scaling factor. Default 700 ",
                       type=float, default=700)
-    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A noise of x^6 (x drawed from a uniform [0,motif_degeneracy] is added to motif pwm. Default 1",
-                      type=float, default=1.0)
+    parser.add_option("--motif_degeneracy", dest="motif_degeneracy", help="A noise of x^8 (x drawed from a uniform [0,motif_degeneracy] is added to motif pwm. Default 1",
+                      type=float, default=0.9)
     parser.add_option("--psi_noise", dest="psi_noise", help="A noise of x (drawed from a uniform [0,psi_noise] is added to simulated PSI. Default 0",
                       type=float, default=0)
     parser.add_option("--fraction_functional", dest="fraction_functional",
@@ -963,6 +980,10 @@ if __name__ == '__main__':
         print(time_string(), "initialize with random motifs and positional effects")
         model0, motifs, positional_effect = initialize_splice_net(model0, "simulation", [], options.effect_scale, 1,
                                                                   options.n_mismatch,options.motif_degeneracy)
+
+        # plot logo
+        #TODO: consider plotting pos_eff along side with logo
+        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif",True)
 
         #TODO: note that one may need effect_scale etc to faithfully simulate the data
         print(time_string(), "save simulator model")
@@ -1074,11 +1095,6 @@ if __name__ == '__main__':
         # plot model structure
         keras.utils.plot_model(model0, to_file=options.job_name + '.model.png', show_shapes=True)
 
-    if not options.no_motif_logo:
-        if options.matrix_reduce:
-            normalization = True
-        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif",normalization)
-
     # TODO only use a subset of motifs for training/prediction
     if options.n_motif_train > 0 and options.n_motif_train < options.n_motif:
         x_train[-1] = numpy.delete(x_train[-1], range(options.n_motif - options.n_motif_train), 0)
@@ -1110,7 +1126,7 @@ if __name__ == '__main__':
         info, rnk, topkmer, kmers = information_content(weights[:2], motifs)
         # check if MatrixREDUCE learns positional effect
 
-        r = numpy.corrcoef(pos_eff[0].flatten(), positional_effect.flatten())[0, 1]
+        r = numpy.corrcoef(pos_eff[0].flatten(), model0.layers[-1].get_weights()[0].flatten())[0, 1]
 
         print(time_string(), "pos_eff r = ", r)
         print(time_string(), "motif rank", str(rnk))
@@ -1186,7 +1202,7 @@ if __name__ == '__main__':
             info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs[motif_i])
 
     # evaluate the model
-    r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, prediction, y_test, positional_effect, motifs)
+    r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, prediction, y_test, motifs)
     # write to screen
     print(time_string(), "evaluation = ", r1, r2, signloss)
     print(time_string(), "motif rank", str(rnk))
