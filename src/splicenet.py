@@ -416,10 +416,8 @@ def splice_net_training(
 
         loss = new_model.evaluate(x_test2, y_test, verbose=0)
 
-        r1, r2, signloss, info, rnk = evaluate_trained_model(new_model, model0, new_model.predict(x_test2), y_test, motifs)
-        print(time_string(), "initialization", i + 1, loss, r1, r2, signloss)
-        print(time_string(), "motif rank", rnk)
-        print(time_string(), "motif info", str(info))
+        r = numpy.corrcoef(new_model.predict(x_test).flatten(), y_test.flatten())[0, 1]
+        print(time_string(), "psi correlation: r^2 ", r ** 2)
 
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, new_model)
         print(time_string(), "motif similarity", str(pwm_sim))
@@ -661,16 +659,14 @@ def infinite_training(
             # save the best model 
             model.save(job_name + '.best_model.h5')
         num_expr = num_expr + n_experiment_train
-        print(time_string(), "calculating correlation")
-        r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, model.predict(x_test), y_test, motifs)
-        print(time_string(), "infinite training", num_expr, loss_new, r1, r2, signloss, no_improvement)
-        print(time_string(), "motif rank", rnk)
-        print(time_string(), "motif info", str(info))
+
+        r = numpy.corrcoef(model.predict(x_test).flatten(), y_test.flatten())[0, 1]
+        print(time_string(), "psi correlation: r^2 ",r ** 2)
 
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
         print(time_string(), "motif similarity", str(pwm_sim))
         print(time_string(), "motif distance", str(pwm_dis))
-        print(time_string(), "pos eff cor", str(pos_eff_cor))
+        print(time_string(), "pos eff cor r^2 ", str(pos_eff_cor ** 2))
 
         if RBP_expr != []:
             if index + n_experiment_train > RBP_expr.shape[1]:
@@ -681,10 +677,9 @@ def infinite_training(
 
     # load the best model
     best_model = load_model(job_name + '.best_model.h5')
-    r1, r2, signloss, info, rnk = evaluate_trained_model(best_model, model0, best_model.predict(x_test), y_test,motifs)
-    print(time_string(), "infinite training best model", r1, r2, signloss)
-    print(time_string(), "motif rank", str(rnk))
-    print(time_string(), "motif info", str(info))
+    r = numpy.corrcoef(best_model.predict(x_test).flatten(), y_test.flatten())[0, 1]
+    print(time_string(), "best model performance")
+    print(time_string(), "psi correlation: r^2 ", r ** 2)
 
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,best_model)
     print(time_string(), "motif similarity", str(pwm_sim))
@@ -1131,14 +1126,14 @@ if __name__ == '__main__':
         weights, pos_eff = splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, options.n_exon_train, options.n_experiment_train,
                                                                       options.n_motif, options.n_region, options.l_seq, options.l_motif)
         # check if MatrixREDUCE learns the right motif
-        info, rnk, topkmer, kmers = information_content(weights[:2], motifs)
+        # info, rnk, topkmer, kmers = information_content(weights[:2], motifs)
         # check if MatrixREDUCE learns positional effect
 
         r = numpy.corrcoef(pos_eff[0].flatten(), model0.layers[-1].get_weights()[0].flatten())[0, 1]
 
-        print(time_string(), "pos_eff r = ", r)
-        print(time_string(), "motif rank", str(rnk))
-        print(time_string(), "motif info", str(info))
+        print(time_string(), "pos_eff r^2 ", r ** 2)
+        #print(time_string(), "motif rank", str(rnk))
+        #print(time_string(), "motif info", str(info))
 
         # CNN bias. this is not that important. the model will figure it out slowly
         weights[1] = weights[1] - 4
@@ -1210,11 +1205,8 @@ if __name__ == '__main__':
             info, rnk, topkmer, kmers = information_content(model.get_weights()[:2], motifs[motif_i])
 
     # evaluate the model
-    r1, r2, signloss, info, rnk = evaluate_trained_model(model, model0, prediction, y_test, motifs)
-    # write to screen
-    print(time_string(), "evaluation = ", r1, r2, signloss)
-    print(time_string(), "motif rank", str(rnk))
-    print(time_string(), "motif info", str(info))
+    r = numpy.corrcoef(model.predict(x_test).flatten(), y_test.flatten())[0, 1]
+    print(time_string(), "psi correlation: r^2 ", r ** 2)
 
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,model)
     print(time_string(), "motif similarity", str(pwm_sim))
