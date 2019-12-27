@@ -25,6 +25,8 @@ from keras.utils import multi_gpu_model
 # example useage:
 # python splicenet.py  --matrix_reduce --n_motif=100 --n_region=4 --motif_degeneracy 0.99 --job_name=motif100region4degeneracy0.99 --effect_scale=2000 --n_mismatch 2 --n_exon_train=2000 --n_experiment_train=2000 --RBP_expr=../data/RBP_GTEx_top1000_mean_normalized.txt --psi_noise 0.1
 
+#TODO: try real sequence real psi/expr, see if MatrixREDUCE on subset of samples learn different motifs
+
 # TODO need to implement multi_gpu_model. It changes layers. Need to re-wrote get_parameters etc.
 #TODO: automatically adjust effect_scale until PSI distribution looks good
 
@@ -233,7 +235,7 @@ def splice_net_simulation(
             raise SystemExit('Error: need to provide a RBP matrix or gamma distribution parameters.')
     else:
         print(time_string(), "RBP expression:from GTEx")
-        if n_experiment_train + n_experiment_train > RBP_expr.shape[1] or n_motif > RBP_expr.shape[0]:
+        if n_experiment_train + n_experiment_test > RBP_expr.shape[1] or n_motif > RBP_expr.shape[0]:
             raise SystemExit('Error: not enough data from GTEx')
         expression_train = RBP_expr[:n_motif, :n_experiment_train]
         expression_test = RBP_expr[:n_motif, n_experiment_train:n_experiment_train + n_experiment_test]
@@ -247,7 +249,7 @@ def splice_net_simulation(
     adjustment = 1.0
     model_updated = False
     while True:
-        x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_train, model,
+        x_test, y_test, index, input_seqs_test = generate_training_data(seqs_test, [], expression_test, model,
                                                                         gamma_shape,
                                                                         gamma_scale, n_experiment_test, group_by,
                                                                         remove_non_regulated, 0)
