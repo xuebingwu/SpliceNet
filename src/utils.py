@@ -122,8 +122,11 @@ logo_plot_for_all_motifs_in_a_model(model,'yes',True)
 '''
 def pwm_normalized_by_info(m):
     # scale each position by information content
-    #m2 = pwm_normalization(m)
-    m2 = kernal_to_pwm(m)
+    min_m = numpy.min(m)
+    if min_m >= 0:
+        m2 = pwm_normalization(m)
+    else:
+        m2 = kernal_to_pwm(m)
     for i in range(m2.shape[1]):
         IC = 2 + sum(m2[:,i] * numpy.log2(m2[:,i]))
         m2[:,i] = m2[:,i]*IC

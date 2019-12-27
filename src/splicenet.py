@@ -294,7 +294,9 @@ def splice_net_simulation(
         y_test = y_test2
 
     print(time_string(), "plot motifs with updated pos_eff")
-    logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif",True)
+    logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif",False)
+    logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-true-motif-normalized",True)
+
     print(time_string(), "save updated simulator model")
     model.save(options.job_name + '.simulator_model.h5')
 
@@ -986,7 +988,9 @@ if __name__ == '__main__':
 
         # plot logo
         #TODO: consider plotting pos_eff along side with logo
-        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif",True)
+        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif",False)
+        logo_plot_for_all_motifs_in_a_model(model0, options.job_name+"-true-motif-normalized",True)
+
 
         #TODO: note that one may need effect_scale etc to faithfully simulate the data
         print(time_string(), "save simulator model")
@@ -1213,10 +1217,6 @@ if __name__ == '__main__':
     print(time_string(), "motif distance", str(pwm_dis))
     print(time_string(), "pos eff cor", str(pos_eff_cor))
 
-    # write to log
-    log.write('PSI/positional_effect/signloss:' + str(r1) + '\t' + str(r2) + '\t' + str(signloss) + '\n')
-    log.write(str(rnk) + '\n')
-
     if not options.no_plot:
         plt.scatter(y_test.flatten(), prediction.flatten(), s=1, alpha=0.3)
         plt.xlabel("Observation")
@@ -1225,7 +1225,9 @@ if __name__ == '__main__':
         plt.close()
 
     if not options.no_motif_logo:
-        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif",True)
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif",False)
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif-normalized",True)
+
         # generate motif logo from convolutional layers, need to have kpLogo directly callable 
         #layer1_motif(model.layers[options.n_region].get_weights(), 1000000, 0.7, 'relu', options.job_name)
         # TODO: replace the code with exact kernal2pwm transformation: https://github.com/gao-lab/kernel-to-PWM
