@@ -6,7 +6,8 @@ import os, sys, copy, fnmatch
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID";
 os.environ["CUDA_VISIBLE_DEVICES"] = "";
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# turn off warning and info
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 from optparse import OptionParser
 
@@ -304,7 +305,7 @@ def splice_net_simulation(
 
     # for each RBP, how many target exons
     # for each exon, how many RBP regulators
-    targets, regulators = splice_net_summary(x_test,model)
+    #targets, regulators = splice_net_summary(x_test,model)
 
     print(time_string(), "generate training data")
     x_train, y_train, index, input_seqs_train = generate_training_data(seqs_train, [], expression_train, model,
@@ -320,7 +321,7 @@ def splice_net_simulation(
         #y_test = y_test + numpy.random.uniform(0,psi_noise,y_test.shape)
 
     # TODO: remove non-informative data
-    # sometimes due to rare motif occurance some sequence will have no match to any motif, their PSI will be 0.5
+    # sometimes due to rare motif occurrence some sequence will have no match to any motif, their PSI will be 0.5
     if remove_non_regulated:
         print(time_string(), "remove non-regulated exons")
         sel1 = numpy.where(abs(y_train - 0.5) < 0.01)
@@ -426,7 +427,7 @@ def splice_net_training(
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, new_model)
         print(time_string(), "motif similarity", str(pwm_sim))
         print(time_string(), "motif distance", str(pwm_dis))
-        print(time_string(), "pos eff cor", str(pos_eff_cor))
+        print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
         model_weights.append(new_model.get_weights())
 
@@ -670,7 +671,7 @@ def infinite_training(
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
         print(time_string(), "motif similarity", str(pwm_sim))
         print(time_string(), "motif distance", str(pwm_dis))
-        print(time_string(), "pos eff cor r^2 ", str(pos_eff_cor ** 2))
+        print(time_string(), "pos eff r^2 ", str(pos_eff_cor ** 2))
 
         if RBP_expr != []:
             if index + n_experiment_train > RBP_expr.shape[1]:
@@ -688,11 +689,14 @@ def infinite_training(
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,best_model)
     print(time_string(), "motif similarity", str(pwm_sim))
     print(time_string(), "motif distance", str(pwm_dis))
-    print(time_string(), "pos eff cor", str(pos_eff_cor))
+    print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
     return best_model
 
 
+#TODO: how to pick the best motif from each region run.
+#TODO: may be not matrix_reduce, but other motif discovery tools. dominated by non-targeting exons?
+#TODO: try meme-chip
 def splicing_motif_discovery_with_MatrixREDUCE(seqs_train, x_train, y_train, n_exon, n_expr, n_motif, n_region, l_seq,
                                                l_motif):
     '''
@@ -1144,7 +1148,9 @@ if __name__ == '__main__':
         # CNN bias. this is not that important. the model will figure it out slowly
         weights[1] = weights[1] - 4
 
-        pos_eff[0] = positional_effect_normalization(pos_eff[0], 100)
+        #TODO: how to set pos_eff_scale value
+        pos_eff_scale = 100
+        pos_eff[0] = positional_effect_normalization(pos_eff[0], pos_eff_scale)
 
         # set the model weights to those learned by MatrixREDUCE
         model.layers[options.n_region].set_weights(weights)
@@ -1152,6 +1158,15 @@ if __name__ == '__main__':
 
         model.layers[-1].set_weights(pos_eff)
         # model.layers[-1].set_weights(model0.layers[-1].get_weights())
+
+        print(time_string(), "evaluate the model before training")
+        r = numpy.corrcoef(model.predict(x_test).flatten(), y_test.flatten())[0, 1]
+        print(time_string(), "psi correlation: r^2 ", r ** 2)
+
+        pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
+        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif distance", str(pwm_dis))
+        print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
         model.fit(
             x_train,
@@ -1217,7 +1232,7 @@ if __name__ == '__main__':
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,model)
     print(time_string(), "motif similarity", str(pwm_sim))
     print(time_string(), "motif distance", str(pwm_dis))
-    print(time_string(), "pos eff cor", str(pos_eff_cor))
+    print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
     if not options.no_plot:
         plt.scatter(y_test.flatten(), prediction.flatten(), s=1, alpha=0.3)

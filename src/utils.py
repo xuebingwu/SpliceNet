@@ -1104,7 +1104,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             logo.ax.set_ylim([0, 2])
         plt.savefig(outputlabel+'-'+str(i)+'.png')
         plt.close()
-
+    print("")
     # pos_eff
     pos_eff = model.layers[-1].get_weights()[0].flatten()
     max_pos_eff = max(abs(pos_eff))
@@ -1137,11 +1137,22 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             axs[b,1].set_ylim(-max_pos_eff,max_pos_eff)
         plt.savefig(outputlabel+'-'+str(i+1)+'-all.png')
         plt.close()
-
+'''
 #TODO
+https://stackoverflow.com/questions/41711190/keras-how-to-get-the-output-of-each-layer
+
 def splice_net_summary(x_test,model):
     # get model parameters
     n_region, n_motif, l_motif, l_seq = get_model_parameters(model)
     targets = 0
     regulators = 0
     return targets, regulators
+
+    from keras import backend as K
+
+    # with a Sequential model
+    #get_3rd_layer_output = K.function([model.layers[0].input],
+                                  [model.layers[3].output])
+    #layer_output = get_3rd_layer_output([x])[0]
+
+'''
