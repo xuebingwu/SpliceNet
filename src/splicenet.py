@@ -1148,7 +1148,8 @@ if __name__ == '__main__':
         # CNN bias. this is not that important. the model will figure it out slowly
         weights[1] = weights[1] - 4
 
-        #TODO: how to set pos_eff_scale value
+        #TODO: how to set pos_eff_scale value. automatically determine it to fit training PSI distribution
+        #TODO: seems doesn't matter much. the training process will adjust it automatically
         pos_eff_scale = 100
         pos_eff[0] = positional_effect_normalization(pos_eff[0], pos_eff_scale)
 

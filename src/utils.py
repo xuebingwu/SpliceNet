@@ -1093,7 +1093,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
     pwms=model.layers[n_region].get_weights()[0]
 
     for i in range(n_motif):
-        print(time_string(), 'generate logo file for motif ',str(i), '                           ',end='\r')
+        print(time_string(), 'generate logo file for motif ',str(i+1), '                           ',end='\r')
         pwm = pwms[:, :, :, i][:, :, 0]
         if normalize:
             pwm = pwm_normalized_by_info(pwm)
@@ -1102,7 +1102,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
         if normalize:
             logo.ax.set_ylabel('Information (bits)')
             logo.ax.set_ylim([0, 2])
-        plt.savefig(outputlabel+'-'+str(i)+'.png')
+        plt.savefig(outputlabel+'-'+str(i+1)+'.png')
         plt.close()
     print("")
     # pos_eff
@@ -1124,8 +1124,8 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             i = a*10 + b
             if i>= n_motif:
                 break
-            img = mpimg.imread(outputlabel+'-'+str(i)+'.png')
-            os.system('rm '+outputlabel+'-'+str(i)+'.png')
+            img = mpimg.imread(outputlabel+'-'+str(i+1)+'.png')
+            os.system('rm '+outputlabel+'-'+str(i+1)+'.png')
             axs[b,0].imshow(img)
             axs[b,0].axis('off')
             pe = pos_eff[base+i]
