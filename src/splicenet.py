@@ -425,7 +425,7 @@ def splice_net_training(
         print(time_string(), "psi correlation: r^2 ", r ** 2)
 
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, new_model)
-        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif similarity", str(numpy.round(pwm_sim,2)))
         print(time_string(), "motif distance", str(pwm_dis))
         print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
@@ -669,7 +669,7 @@ def infinite_training(
         print(time_string(), "psi correlation: r^2 ",r ** 2)
 
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
-        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif similarity", str(numpy.round(pwm_sim,2)))
         print(time_string(), "motif distance", str(pwm_dis))
         print(time_string(), "pos eff r^2 ", str(pos_eff_cor ** 2))
 
@@ -687,7 +687,7 @@ def infinite_training(
     print(time_string(), "psi correlation: r^2 ", r ** 2)
 
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,best_model)
-    print(time_string(), "motif similarity", str(pwm_sim))
+    print(time_string(), "motif similarity", str(numpy.round(pwm_sim,2)))
     print(time_string(), "motif distance", str(pwm_dis))
     print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
@@ -1165,7 +1165,7 @@ if __name__ == '__main__':
         print(time_string(), "psi correlation: r^2 ", r ** 2)
 
         pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0, model)
-        print(time_string(), "motif similarity", str(pwm_sim))
+        print(time_string(), "motif similarity", str(numpy.round(pwm_sim,2)))
         print(time_string(), "motif distance", str(pwm_dis))
         print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
@@ -1231,7 +1231,7 @@ if __name__ == '__main__':
     print(time_string(), "psi correlation: r^2 ", r ** 2)
 
     pwm_sim, pwm_dis, pos_eff_cor = model_similarity(model0,model)
-    print(time_string(), "motif similarity", str(pwm_sim))
+    print(time_string(), "motif similarity", str(numpy.round(pwm_sim,2)))
     print(time_string(), "motif distance", str(pwm_dis))
     print(time_string(), "pos eff r^2", str(pos_eff_cor**2))
 
