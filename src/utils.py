@@ -93,7 +93,7 @@ def top_seq_of_pwm(m):
     return seq
 
 def kernal_to_pwm(W):
-    # take a kernal weight matrix (4xL) from a model and convert it two pwm (position sum up to 1)
+    # take a kernal weight matrix (4xL) from a model and convert it to pwm (column sum up to 1)
     # modified from:
     #https://github.com/gao-lab/kernel-to-PWM/blob/master/k2p-1.0/code/kernel2PWM.py
     C =  numpy.exp(1) ** W
