@@ -396,7 +396,7 @@ def splice_net_training(
         # initialize the new model randomly, or with some parameters used in the simulation
         # fraction_functional=1
         new_model, a, b = initialize_splice_net(new_model, initialization_mode, model0, effect_scale,
-                                                fraction_functional, n_mismatch)
+                                                fraction_functional, n_mismatch,motif_degeneracy)
 
         # train model
         new_model.fit(
@@ -1243,8 +1243,8 @@ if __name__ == '__main__':
         plt.close()
 
     if not options.no_motif_logo:
-        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif",False)
-        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif-normalized",True)
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif",False,pwm_dis)
+        logo_plot_for_all_motifs_in_a_model(model, options.job_name+"-learned-motif-normalized",True,pwm_sim)
 
         # generate motif logo from convolutional layers, need to have kpLogo directly callable 
         #layer1_motif(model.layers[options.n_region].get_weights(), 1000000, 0.7, 'relu', options.job_name)

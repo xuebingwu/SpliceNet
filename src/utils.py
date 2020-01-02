@@ -1084,7 +1084,7 @@ def positional_effect_normalization(pe, scale):
     pe = pe * scale / (max(pe) - min(pe)) * 2
     return pe
 
-def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
+def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False,scores=[]):
     # plot logos and pos_eff of all motifs
 
     # get model parameters
@@ -1099,8 +1099,13 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             pwm = pwm_normalized_by_info(pwm)
         #print(str(pwm))
         logo = logomaker.Logo(pandas.DataFrame(numpy.transpose(pwm), columns=['A', 'C', 'G', 'U']))
+        plt.rcParams.update({'font.size': 24})
+        if len(scores) > i:
+            logo.ax.set_title(str(round(scores[i], ndigits=2)))
+        logo.ax.set_xticks(range(l_motif))
+        logo.ax.set_xticklabels(numpy.array(range(l_motif)) + 1)
         if normalize:
-            logo.ax.set_ylabel('Information (bits)')
+            logo.ax.set_ylabel('Information')
             logo.ax.set_ylim([0, 2])
         plt.savefig(outputlabel+'-'+str(i+1)+'.png')
         plt.close()
@@ -1128,6 +1133,7 @@ def logo_plot_for_all_motifs_in_a_model(model,outputlabel,normalize=False):
             os.system('rm '+outputlabel+'-'+str(i+1)+'.png')
             axs[b,0].imshow(img)
             axs[b,0].axis('off')
+            #axs[b,0].set_title(str(round(scores[i], ndigits=2)))
             pe = pos_eff[base+i]
             color = ['red'] * n_region
             for j in range(n_region):
