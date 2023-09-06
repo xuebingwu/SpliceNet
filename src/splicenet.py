@@ -21,7 +21,7 @@ from utils import *
 import numpy
 import pickle
 
-from keras.utils import multi_gpu_model
+#from keras.utils import multi_gpu_model
 
 # example useage:
 # python splicenet.py  --matrix_reduce --n_motif=100 --n_region=4 --motif_degeneracy 0.99 --job_name=motif100region4degeneracy0.99 --effect_scale=2000 --n_mismatch 2 --n_exon_train=2000 --n_experiment_train=2000 --RBP_expr=../data/RBP_GTEx_top1000_mean_normalized.txt --psi_noise 0.1
